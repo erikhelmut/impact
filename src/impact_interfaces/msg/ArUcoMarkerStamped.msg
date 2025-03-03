@@ -1,4 +1,4 @@
 std_msgs/Header header
 uint8 id
-uint8[] x
-uint8[] y
+uint16[] x
+uint16[] y
