@@ -133,6 +133,7 @@ def main(args=None):
     """
     ROS node for detecting ArUco markers in the color image of the RealSense D405 camera.
 
+    :param args: arguments for the ROS node
     :return: None
     """
 
@@ -140,12 +141,12 @@ def main(args=None):
 
         print("""
         DETECT ARUCO
-         ██████████
-         █ ██  █  █
-         █  ████ ██
-         █ █  ██  █
-         █ ██  ████
-         ██████████
+        ████████████
+        █ ██  ██  ██
+        █  ████  ███
+        █ █  ███  ██
+        █ ██  ███  █
+        ████████████
         """)
 
         print("Detect ArUco Node is running... Press <ctrl> <c> to stop. \nPosition of ArUco markers with id 0 and 1 are being published on topics /aruco_marker_0 and /aruco_marker_1. Distance between markers is being published on topic /aruco_distance. Image with detected markers and distance is being published on topic /realsense_d405_color_image_aruco. \n")

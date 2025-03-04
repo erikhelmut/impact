@@ -95,6 +95,7 @@ def main(args=None):
     """
     ROS node for the actuated-UMI gripper.
 
+    :param args: arguments for the ROS node
     :return: None
     """
 

@@ -98,6 +98,7 @@ def main(args=None):
     """
     ROS node for the Intel RealSense D405 camera.
     
+    :param args: arguments for the ROS node
     :return: None
     """
 
