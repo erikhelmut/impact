@@ -2,17 +2,14 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>impact</name>
-  <version>0.0.0</version>
-  <description>TODO: Package description</description>
-  <maintainer email="erik@todo.todo">erik</maintainer>
+  <version>0.0.1</version>
+  <description>IMPACT ROS2 Jazzy Package</description>
+  <maintainer email="erik.helmut1@gmail.com">erik</maintainer>
   <license>Apache-2.0</license>
 
-  <test_depend>ament_copyright</test_depend>
-  <test_depend>ament_flake8</test_depend>
-  <test_depend>ament_pep257</test_depend>
-  <test_depend>python3-pytest</test_depend>
-
-  <exec_depend>impact_interfaces</exec_depend>
+  <exec_depend>actuated_umi</exec_depend>
+  <exec_depend>realsense_d405</exec_depend>
+  <exec_depend>aruco_msgs</exec_depend>
 
   <export>
     <build_type>ament_python</build_type>

@@ -4,7 +4,7 @@ package_name = 'impact'
 
 setup(
     name=package_name,
-    version='0.0.0',
+    version='0.0.1',
     packages=find_packages(exclude=['test']),
     data_files=[
         ('share/ament_index/resource_index/packages',
@@ -14,15 +14,11 @@ setup(
     install_requires=['setuptools'],
     zip_safe=True,
     maintainer='erik',
-    maintainer_email='erik@todo.todo',
-    description='TODO: Package description',
+    maintainer_email='erik.helmut1@gmail.com',
+    description='IMPACT ROS2 Jazzy Package',
     license='Apache-2.0',
-    #tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'actuated_umi_node = impact.actuated_umi.actuated_umi_node:main',
-            'realsense_d405_node = impact.realsense_d405.realsense_d405_node:main',
-            'detect_aruco_node = impact.realsense_d405.detect_aruco_node:main',
         ],
     },
 )
