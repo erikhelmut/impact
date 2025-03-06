@@ -5,7 +5,6 @@ from sensor_msgs.msg import Image
 
 import pyrealsense2 as rs
 import numpy as np
-import cv2
 
 
 class RealSenseD405Node(Node):

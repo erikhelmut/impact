@@ -2,7 +2,7 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Header
 from sensor_msgs.msg import Image
-from impact_interfaces.msg import ArUcoMarkerStamped, ArUcoDistStamped
+from aruco_msgs.msg import ArUcoMarkerStamped, ArUcoDistStamped
 
 import numpy as np
 import cv2
