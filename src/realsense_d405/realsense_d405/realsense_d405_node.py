@@ -4,6 +4,7 @@ from std_msgs.msg import Header
 from sensor_msgs.msg import Image
 
 import pyrealsense2 as rs
+
 import numpy as np
 
 
