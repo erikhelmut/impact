@@ -6,7 +6,7 @@ from std_msgs.msg import Int16, Header
 from sensor_msgs.msg import JointState
 
 from dynamixel_api import XL430W250TConnector
-from impact.actuated_umi.motor_control import ActuatedUMI
+from actuated_umi.motor_control import ActuatedUMI
 
 
 class ActuatedUMINode(Node):

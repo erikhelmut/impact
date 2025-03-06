@@ -5,7 +5,7 @@ from rclpy.node import Node
 from message_filters import Subscriber, ApproximateTimeSynchronizer
 from std_msgs.msg import Int16
 from sensor_msgs.msg import JointState
-from impact_interfaces.msg import ArUcoDistStamped
+from aruco_msgs.msg import ArUcoDistStamped
 
 import numpy as np
 import time
@@ -116,6 +116,7 @@ def main(folder, args=None):
         # least squares fit to determine the relationship between the aruco distance and motor position
         m, c = np.polyfit(calibrate_gripper.aruco_dist, calibrate_gripper.motor_pos, 1)
         
+        # save calibration data
         np.save(folder + time.strftime("%Y%m%d-%H%M%S") + ".npy", [m, c])
 
         # plot motor position vs aruco distance

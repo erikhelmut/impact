@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>actuated_umi</name>
+  <version>0.0.1</version>
+  <description>Actuated-UMI ROS2 Jazzy Package</description>
+  <maintainer email="erik.helmut1@gmail.com">erik</maintainer>
+  <license>Apache-2.0</license>
+
+  <exec_depend>realsense_d405</exec_depend>
+  <exec_depend>aruco_msgs</exec_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
