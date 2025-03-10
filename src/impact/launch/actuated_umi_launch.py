@@ -15,5 +15,9 @@ def generate_launch_description():
         Node(
             package='realsense_d405',
             executable='detect_aruco_node',
+        ),
+        Node(
+            package='gelsight_mini',
+            executable='gelsight_mini_node',
         )
     ])
