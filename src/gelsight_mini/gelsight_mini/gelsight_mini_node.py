@@ -52,15 +52,16 @@ class GelSightMiniNode(Node):
             img = img[border_size_x:img.shape[0] - border_size_x, border_size_y:img.shape[1] - border_size_y]
             img = img[:, :-1]  # remove last column to get a popular image resolution
             img = cv2.resize(img, (self.imgw, self.imgh))  # final resize for 3d
+
+            # convert to ros msg image
+            img_msg = self.bridge.cv2_to_imgmsg(img, "bgr8")
+            img_msg.header.stamp = self.get_clock().now().to_msg()
+            self.gs_mini_publisher_.publish(img_msg)
+
         else:
             print("ERROR! reading image from camera")
 
-        # convert to ros msg image
-        img_msg = self.bridge.cv2_to_imgmsg(img, "bgr8")
-        img_msg.header.stamp = self.get_clock().now().to_msg()
-        self.gs_mini_publisher_.publish(img_msg)
-
-
+        
 def main(args=None):
     """
     ROS node for the GelSight Mini sensor.
