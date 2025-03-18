@@ -1,0 +1,3 @@
+- increase p gain
+- crop command/error to avoid overshoot
+- save data as HDF5 file

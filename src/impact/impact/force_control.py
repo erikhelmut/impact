@@ -34,7 +34,7 @@ class ForceControl(Node):
         self.goal_force_subscriber  # prevent unused variable warning
 
         # create timer to control the force of the gripper
-        self.timer = self.create_timer(0.1, self.force_control)
+        self.timer = self.create_timer(0.01, self.force_control)
 
 
     def set_goal_position(self, position):
@@ -85,8 +85,8 @@ class ForceControl(Node):
 
     def force_control(self):
 
-        kp = 10
-        kd = 2
+        kp = 5  # probably to little
+        kd = 0.1
         prev_error = 0
 
         if self.current_force is not None and self.goal_force is not None:
@@ -94,7 +94,7 @@ class ForceControl(Node):
             # control error
             error = self.goal_force - self.current_force
 
-            derivative = (error - prev_error) / 0.1
+            derivative = (error - prev_error) / 0.01
 
             command = kp * error + kd * derivative
             
