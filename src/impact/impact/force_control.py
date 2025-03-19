@@ -5,16 +5,29 @@ from geometry_msgs.msg import WrenchStamped
 from sensor_msgs.msg import JointState
 
 
-
 class ForceControl(Node):
 
     def __init__(self):
+        """
+        This node controls the force of the gripper by setting the goal position of the motor.
+
+        :return: None
+        """
         
         super().__init__('force_control')
+
+        # define control parameters
+        self.kp = 10  # proportional gain
+        self.kd = 0.1  # derivative gain
+        self.alpha = 0.8  # low-pass filter parameter
 
         # store current force and goal force
         self.current_force = None
         self.goal_force = None
+
+        # store previous force and force rate
+        self.prev_force = 0
+        self.prev_force_rate_filtered = 0
 
         # store current position of gripper
         self.current_position = None
@@ -34,7 +47,8 @@ class ForceControl(Node):
         self.goal_force_subscriber  # prevent unused variable warning
 
         # create timer to control the force of the gripper
-        self.timer = self.create_timer(0.01, self.force_control)
+        self.control_frequency = 100
+        self.timer = self.create_timer(1.0 / self.control_frequency, self.force_control)
 
 
     def set_goal_position(self, position):
@@ -80,37 +94,55 @@ class ForceControl(Node):
         :return: None
         """
 
-        self.current_force = msg.wrench.force.z 
+        self.current_force = msg.wrench.force.z
 
 
     def force_control(self):
+        """
+        Control the force of the gripper via force feedback.
 
-        kp = 5  # probably to little
-        kd = 0.1
-        prev_error = 0
+        :return: None
+        """
 
-        if self.current_force is not None and self.goal_force is not None:
-            
-            # control error
-            error = self.goal_force - self.current_force
+        if self.current_force is not None and self.goal_force is not None and self.current_position is not None:
 
-            derivative = (error - prev_error) / 0.01
+            # calculate force error
+            force_error = self.goal_force - self.current_force
+            print("Force error: ", force_error)
 
-            command = kp * error + kd * derivative
-            
-            prev_error = error
+            # calculate force rate (raw derivative)
+            force_rate_unfiltered = (self.current_force - self.prev_force) / (1.0 / self.control_frequency)
 
-            print("Error: ", error)
+            # apply low-pass filter to force rate
+            force_rate_filtered = self.alpha * self.prev_force_rate_filtered + (1 - self.alpha) * force_rate_unfiltered
 
-            # set goal position
-            self.set_goal_position(self.current_position + command)
+            # compute position adjustment using PD control
+            position_adjustment = self.kp * force_error + self.kd * force_rate_filtered
+
+            # apply saturation (to avoid excessive movements)
+            max_step = 100
+            position_adjustment = max(min(position_adjustment, max_step), -max_step)
+
+            # update gripper position
+            # TODO: check if position adjustment with relative adjustment is correct
+            self.set_goal_position(self.current_position + position_adjustment)
+
+            # store values for next iteration
+            self.prev_force = self.current_force
+            self.prev_force_rate_filtered = force_rate_filtered
 
 
 def main(args=None):
+    """
+    ROS node for the force control of the gripper.
+
+    :param args: arguments for the ROS node
+    :return: None
+    """
 
     try:
         
-        print("Force Control node is running...")
+        print("Force Control node is running... Press <ctrl> <c> to stop. \n")
 
         rclpy.init(args=args)
 
@@ -126,7 +158,6 @@ def main(args=None):
         force_control.destroy_node()
         rclpy.shutdown()
     
-
 
 if __name__ == "__main__":
 
