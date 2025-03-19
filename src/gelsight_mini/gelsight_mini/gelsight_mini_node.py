@@ -280,7 +280,7 @@ def main(args=None):
         |__________________|
         """)
 
-        print("GelSight Mini Node is running.. Press <ctrl> <c> to stop. \nGelSight Mini images are being published on topic /gelsight_mini_image. \n")
+        print("GelSight Mini Node is running... Press <ctrl> <c> to stop. \nGelSight Mini images are being published on topic /gelsight_mini_image. \n")
 
         rclpy.init(args=args)
 
