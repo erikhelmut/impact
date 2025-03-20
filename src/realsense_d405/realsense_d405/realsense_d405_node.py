@@ -4,6 +4,7 @@ from std_msgs.msg import Header
 from sensor_msgs.msg import Image
 
 import pyrealsense2 as rs
+from realsense_d405.rsdevice import RealSenseD405
 
 import numpy as np
 
@@ -19,22 +20,8 @@ class RealSenseD405Node(Node):
         
         super().__init__("realsense_d405_node")
 
-        # configure depth and color streams
-        self.pipeline = rs.pipeline()
-        config = rs.config()
-
-        # get device product line for setting a supporting resolution
-        pipeline_wrapper = rs.pipeline_wrapper(self.pipeline)
-        pipeline_profile = config.resolve(pipeline_wrapper)
-        device = pipeline_profile.get_device()
-        device_product_line = str(device.get_info(rs.camera_info.product_line))
-
-        # enable depth and color streams
-        config.enable_stream(rs.stream.depth, 848, 480, rs.format.z16, 30)
-        config.enable_stream(rs.stream.color, 848, 480, rs.format.bgr8, 30)
-
-        # start streaming
-        self.pipeline.start(config)
+        # initialze camera
+        self.cam = RealSenseD405(img_shape=(848, 480))
 
         # create publisher for color and depth image
         self.color_publisher_ = self.create_publisher(Image, "realsense_d405_color_image", 10)
@@ -50,7 +37,7 @@ class RealSenseD405Node(Node):
         :return: None
         """
         
-        self.pipeline.stop()
+        self.cam.__del__()
 
 
     def get_frames(self):
@@ -60,14 +47,8 @@ class RealSenseD405Node(Node):
         :return: None
         """
 
-        # wait for a coherent pair of frames: depth and color
-        frames = self.pipeline.wait_for_frames()
-        depth_frame = frames.get_depth_frame()
-        color_frame = frames.get_color_frame()
-
         # convert images to numpy arrays
-        depth_image = np.asanyarray(depth_frame.get_data())
-        color_image = np.asanyarray(color_frame.get_data())
+        color_image, depth_image = self.cam.latest_img
 
         header = Header()
         header.stamp = self.get_clock().now().to_msg()
