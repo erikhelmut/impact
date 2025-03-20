@@ -157,7 +157,7 @@ class GelSight:
     @property
     def connected(self):
         """
-        Connected to the the GelSight.
+        Connected to the GelSight.
 
         :return: bool: true if connected, otherwise false
         """
