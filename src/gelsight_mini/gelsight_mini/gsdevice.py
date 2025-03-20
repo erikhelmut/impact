@@ -82,8 +82,8 @@ class GelSight:
                     self.terminate_thread = True
                     continue
                 with self.lock:
+                    self.__img_before_latest = self.__latest_img.copy()
                     self.__latest_img = img
-                    self.__img_before_latest = self.__latest_img
 
         except Exception as ex:
             pass
