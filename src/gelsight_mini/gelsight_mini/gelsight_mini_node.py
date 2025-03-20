@@ -22,7 +22,7 @@ class GelSightMiniNode(Node):
         super().__init__("gelsight_mini_node")
 
         # initialize camera
-        self.cam= GelSight(img_shape=(895, 672)) # size suggested by janos to maintain aspect ratio
+        self.cam = GelSight(img_shape=(895, 672)) # size suggested by janos to maintain aspect ratio
 
         # set camera parameters
         self.imgw = 320
