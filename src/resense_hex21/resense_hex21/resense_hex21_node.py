@@ -22,7 +22,7 @@ class ResenseNode(Node):
         super().__init__("resense_node")
 
         # create dictionary for frequency modes
-        self.frequencyModes = {0:1000, 1:500, 2:100, 3:25}
+        self.frequencyModes = {0:1000, 1:500, 2:100}
 
         self.sensors = []
         # making sure that serial_port is readable before initializing sensor
@@ -101,7 +101,7 @@ def main(args=None):
 
         rclpy.init(args=args)
 
-        resense_node = ResenseNode(["/dev/ttyACM0"], 3)
+        resense_node = ResenseNode(["/dev/ttyACM0"], 2)
 
         rclpy.spin(resense_node)
 
