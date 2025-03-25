@@ -19,5 +19,9 @@ def generate_launch_description():
         Node(
             package='gelsight_mini',
             executable='gelsight_mini_node',
+        ),
+        Node(
+            package='resense_hex21',
+            executable='resense_hex21_node',
         )
     ])
