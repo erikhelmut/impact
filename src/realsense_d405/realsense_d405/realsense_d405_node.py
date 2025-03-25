@@ -3,10 +3,7 @@ from rclpy.node import Node
 from std_msgs.msg import Header
 from sensor_msgs.msg import Image
 
-import pyrealsense2 as rs
 from realsense_d405.rsdevice import RealSenseD405
-
-import numpy as np
 
 
 class RealSenseD405Node(Node):
@@ -21,7 +18,7 @@ class RealSenseD405Node(Node):
         super().__init__("realsense_d405_node")
 
         # initialze camera
-        self.cam = RealSenseD405(img_shape=(848, 480))
+        self.cam = RealSenseD405(img_shape=(640, 480))
 
         # create publisher for color and depth image
         self.color_publisher_ = self.create_publisher(Image, "realsense_d405_color_image", 10)
