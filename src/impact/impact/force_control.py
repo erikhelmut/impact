@@ -18,8 +18,8 @@ class ForceControl(Node):
         super().__init__('force_control')
 
         # define control parameters
-        self.kp = 55  # proportional gain
-        self.kd = 0.2  # derivative gain
+        self.kp = 77  # proportional gain
+        self.kd = 0.7  # derivative gain
         self.alpha = 0.8  # low-pass filter parameter
 
         # store current force and goal force
@@ -94,6 +94,7 @@ class ForceControl(Node):
 
         self.goal_force = msg.data
 
+
     def receive_force(self, msg):
         """
         Receive the current force of the gripper.
@@ -145,11 +146,23 @@ class ForceControl(Node):
         elif self.current_force <= -1.0:
             self.force_control_active = True
 
+        # TODO: update goal force iteratively. allow only a small change of goal force per iteration until the desired goal force is reached
+
         if self.force_control_active:
             if self.goal_force is not None and self.current_position is not None:
 
+                # clip goal force to be max 0.2N bigger or smaller than the internal goal force
+                internal_goal_force = 0.0
+                if self.goal_force > self.current_force + 0.5:
+                    internal_goal_force = self.current_force + 0.5
+                elif self.goal_force < self.current_force - 0.5:
+                    internal_goal_force = self.current_force - 0.5
+                else:
+                    internal_goal_force = self.goal_force
+
                 # calculate force error
-                force_error = self.goal_force - self.current_force
+                #force_error = self.goal_force - self.current_force
+                force_error = internal_goal_force - self.current_force
                 print("Force error: ", force_error)
 
                 # compute relative position adjustment using PD control
