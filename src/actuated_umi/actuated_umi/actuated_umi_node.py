@@ -3,6 +3,8 @@ from rclpy.node import Node
 from std_msgs.msg import Int16, Header
 from sensor_msgs.msg import JointState
 
+import time
+
 from dynamixel_api import XL430W250TConnector
 from actuated_umi.motor_control import ActuatedUMI
 
@@ -56,6 +58,7 @@ class ActuatedUMINode(Node):
         """
 
         self.gripper.torque_enabled = False
+        time.sleep(0.2)
         self.connector.disconnect()
 
 
