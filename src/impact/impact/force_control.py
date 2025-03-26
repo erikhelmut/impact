@@ -15,7 +15,7 @@ class ForceControl(Node):
         :return: None
         """
         
-        super().__init__('force_control')
+        super().__init__("force_control")
 
         # define control parameters
         self.kp = 77  # proportional gain
@@ -146,8 +146,7 @@ class ForceControl(Node):
         elif self.current_force <= -1.0:
             self.force_control_active = True
 
-        # TODO: update goal force iteratively. allow only a small change of goal force per iteration until the desired goal force is reached
-
+        # control force if force control is active
         if self.force_control_active:
             if self.goal_force is not None and self.current_position is not None:
 
@@ -169,8 +168,8 @@ class ForceControl(Node):
                 position_adjustment = self.kp * force_error + self.kd * self.force_rate_filtered
 
                 # apply saturation (to avoid excessive movements)
-                max_step = 42
-                position_adjustment = max(min(position_adjustment, max_step), -max_step)
+                #max_step = 42
+                #position_adjustment = max(min(position_adjustment, max_step), -max_step)
 
                 # update gripper position
                 self.set_goal_position(self.current_position + position_adjustment)
