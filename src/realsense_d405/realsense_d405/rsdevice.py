@@ -33,24 +33,24 @@ class RealSenseD405:
 
         # configure depth and color streams
         self.__camera = rs.pipeline()
-        config = rs.config()
+        self.config = rs.config()
 
         # get device product line for setting a supporting resolution
         pipeline_wrapper = rs.pipeline_wrapper(self.__camera)
-        pipeline_profile = config.resolve(pipeline_wrapper)
+        pipeline_profile = self.config.resolve(pipeline_wrapper)
         device = pipeline_profile.get_device()
         device_product_line = str(device.get_info(rs.camera_info.product_line))
 
         # enable depth and color streams
-        config.enable_stream(rs.stream.depth, img_shape[0], img_shape[1], rs.format.z16, 30)
-        config.enable_stream(rs.stream.color, img_shape[0], img_shape[1], rs.format.bgr8, 30)
+        self.config.enable_stream(rs.stream.depth, img_shape[0], img_shape[1], rs.format.z16, 30)
+        self.config.enable_stream(rs.stream.color, img_shape[0], img_shape[1], rs.format.bgr8, 30)
 
         # check if connected
         if not self.connected:
             pass
 
         # start streaming
-        self.__camera.start(config)
+        self.__camera.start(self.config)
         self.terminate_thread = False
         self.lock = threading.Lock()
         self.thread = threading.Thread(
@@ -90,8 +90,22 @@ class RealSenseD405:
 
         try:
             while not self.terminate_thread:
-                # wait for a coherent pair of frames: depth and color
-                frames = self.__camera.wait_for_frames()
+                
+                try:
+                    # wait for a coherent pair of frames: depth and color
+                    frames = self.__camera.wait_for_frames(timeout_ms=1000)
+                except RuntimeError as _:
+                    # try to reconnect
+                    self.__camera.stop()
+                    self.__camera = rs.pipeline()
+                    self.__camera.start(self.config)
+                    try:
+                        frames = self.__camera.wait_for_frames()
+                    except RuntimeError as _:
+                        print(f"{self.__camera_name} thread closed!")
+                        self.terminate_thread = True
+                        continue
+
                 depth_frame = frames.get_depth_frame()
                 color_frame = frames.get_color_frame()
 
@@ -112,8 +126,8 @@ class RealSenseD405:
                     self.__latest_color_image = color_image
                     self.__latest_depth_image = depth_image
 
-        except Exception as ex:
-            pass
+        except RealSenseD405Error as rserr:
+            raise rserr
 
 
     def __enter__(self):
