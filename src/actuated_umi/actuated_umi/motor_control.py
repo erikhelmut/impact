@@ -6,6 +6,9 @@ class ActuatedUMI(Motor):
     def __init__(self, connector):
         super().__init__(connector)
 
+    def __del__(self):
+        self._Motor_write("torque_enable", False)
+
     @property
     def position_p_gain(self):
         return self._Motor__read("position_p_gain")
