@@ -1,5 +1,6 @@
 import rclpy
 from rclpy.node import Node
+from sensor_msgs.msg import Image
 
 import sys; sys.path.append("../")
 import argparse
@@ -27,7 +28,15 @@ class FEATSNode(Node):
 
     def __init__(self):
         
-        super().__init__('feats_node')
+        super().__init__("feats_node")
+
+        # create subscriber to get current image of the gelsight mini
+        self.gelsight_subscriber = self.create_subscription(Image, "gelsight_mini_image", self.make_prediction, 10)
+        self.gelsight_subscriber  # prevent unused variable warning
+
+        # create publisher for the FEATS
+        self.feats_publisher_ = self.create_publisher(Image, "feats_image", 10)
+        timer_period = 1.0 / 25  # 25 Hz
 
 
 def capture_image(cam, imgw=320, imgh=240):
