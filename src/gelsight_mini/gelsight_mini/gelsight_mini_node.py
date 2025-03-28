@@ -53,7 +53,7 @@ class GelSightMiniNode(Node):
         img = img[:, :-1]  # remove last column to get a popular image resolution
         img = cv2.resize(img, (self.imgw, self.imgh))  # final resize for 3d
 
-        # convert to ros msg image
+        # convert to ros image message
         img_msg = self.bridge.cv2_to_imgmsg(img, "rgb8")
         img_msg.header.stamp = self.get_clock().now().to_msg()
         self.gs_mini_publisher_.publish(img_msg)
