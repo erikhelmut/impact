@@ -12,6 +12,8 @@
   <exec_depend>aruco_msgs</exec_depend>
   <exec_depend>gelsight_mini</exec_depend>
   <exec_depend>resense_hex21</exec_depend>
+  <exec_depend>feats</exec_depend>
+  <exec_depend>feats_msgs</exec_depend>
   <exec_depend>ros2launch</exec_depend>
 
   <export>
