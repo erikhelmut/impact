@@ -19,6 +19,7 @@ setup(
     license='Apache-2.0',
     entry_points={
         'console_scripts': [
+            'feats_node = feats.feats_node:main',
         ],
     },
 )

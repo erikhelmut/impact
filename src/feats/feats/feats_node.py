@@ -1,13 +1,11 @@
-#import sys; sys.path.append("../")
-
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
 
+import os
 import yaml
 
 import cv2
-from cv_bridge import CvBridge
 import numpy as np
 import torch
 
@@ -31,12 +29,15 @@ class FEATS:
         else:
             self.device = torch.device("cpu")
 
+        # define package path
+        self.package_path = os.path.dirname(__file__).split("install")[0] + "src/feats/"
+
         # load config file
-        self.config = yaml.safe_load(open("../config/predict_config.yaml", "r"))
+        self.config = yaml.load(open(self.package_path + "config/predict_config.yaml", "r"),  Loader=yaml.FullLoader)
 
         # load model
         self.model = UNet(enc_chs=self.config["enc_chs"], dec_chs=self.config["dec_chs"], out_sz=self.config["output_size"])
-        self.model.load_state_dict(torch.load(self.config["model"], map_location=torch.device("cpu"), weights_only=True))
+        self.model.load_state_dict(torch.load(self.package_path + self.config["model"], map_location=torch.device("cpu"), weights_only=True))
         self.model.eval().to(self.device)
 
 
@@ -53,7 +54,7 @@ class FEATS:
         data["gs_img"] = img
         
         # normalize data
-        data = normalize(data, self.config["norm_file"])
+        data = normalize(data, self.package_path + self.config["norm_file"])
 
         # convert to torch tensor
         gs_img = torch.from_numpy(data["gs_img"]).float()
@@ -78,9 +79,9 @@ class FEATS:
 
         # unnormalize the outputs
         outputs_transf = outputs.squeeze(0).permute(1, 2, 0)
-        pred_grid_x = unnormalize(outputs_transf[:, :, 0], "grid_x", self.config["norm_file"])
-        pred_grid_y = unnormalize(outputs_transf[:, :, 1], "grid_y", self.config["norm_file"])
-        pred_grid_z = unnormalize(outputs_transf[:, :, 2], "grid_z", self.config["norm_file"])
+        pred_grid_x = unnormalize(outputs_transf[:, :, 0], "grid_x", self.package_path + self.config["norm_file"])
+        pred_grid_y = unnormalize(outputs_transf[:, :, 1], "grid_y", self.package_path + self.config["norm_file"])
+        pred_grid_z = unnormalize(outputs_transf[:, :, 2], "grid_z", self.package_path + self.config["norm_file"])
 
         # convert to numpy
         pred_grid_x = pred_grid_x.cpu().detach().numpy()
@@ -138,9 +139,6 @@ class FEATSNode(Node):
         f_x = np.sum(pred_grid_x)
         f_y = np.sum(pred_grid_y)
         f_z = np.sum(pred_grid_z)
-
-        # create general Image message structure
-        
         
         # create Image message for x
         pred_grid_x = (pred_grid_x - self.clim_x[0]) / (self.clim_x[1] - self.clim_x[0])
