@@ -3,6 +3,7 @@ from rclpy.node import Node
 from std_msgs.msg import Int16, Float32
 from geometry_msgs.msg import WrenchStamped
 from sensor_msgs.msg import JointState
+from impact_msgs.msg import GoalForceController
 from collections import deque
 
 
@@ -19,7 +20,7 @@ class ForceControl(Node):
 
         # define control parameters
         self.kp = 77  # proportional gain
-        self.kd = 0.7  # derivative gain
+        self.kd = 10  # derivative gain
         self.alpha = 0.8  # low-pass filter parameter
 
         # store current force and goal force
@@ -33,9 +34,6 @@ class ForceControl(Node):
 
         # store current position of gripper
         self.current_position = None
-
-        # deactivate force control in the beginning
-        self.force_control_active = False
 
         # create publisher to set goal position of gripper
         self.goal_position_publisher = self.create_publisher(Int16, "set_actuated_umi_motor_position", 10)
@@ -52,7 +50,7 @@ class ForceControl(Node):
         self.message_queue = deque(maxlen=1)
 
         # create subscriber to set goal force of gripper
-        self.goal_force_subscriber = self.create_subscription(Float32, "set_actuated_umi_goal_force", self.set_goal_force, 10)
+        self.goal_force_subscriber = self.create_subscription(GoalForceController, "set_actuated_umi_goal_force", self.set_goal_force, 10)
         self.goal_force_subscriber  # prevent unused variable warning
 
         # create timer to control the force of the gripper
@@ -92,7 +90,10 @@ class ForceControl(Node):
         :return: None
         """
 
-        self.goal_force = msg.data
+        self.goal_force = msg.goal_force
+        self.kp = msg.kp
+        self.kd = msg.kd
+        self.alpha = msg.alpha
 
 
     def receive_force(self, msg):
@@ -140,39 +141,22 @@ class ForceControl(Node):
         :return: None
         """
 
-        # move gripper to initial position before force control takes over
-        if self.current_position is not None and self.current_force > -1.0 and self.force_control_active is False:
-            self.set_goal_position(self.current_position - 50)
-        elif self.current_force <= -1.0:
-            self.force_control_active = True
-
         # control force if force control is active
-        if self.force_control_active:
-            if self.goal_force is not None and self.current_position is not None:
+        if self.goal_force is not None and self.current_position is not None:
 
-                # clip goal force to be max 0.2N bigger or smaller than the internal goal force
-                internal_goal_force = 0.0
-                if self.goal_force > self.current_force + 0.5:
-                    internal_goal_force = self.current_force + 0.5
-                elif self.goal_force < self.current_force - 0.5:
-                    internal_goal_force = self.current_force - 0.5
-                else:
-                    internal_goal_force = self.goal_force
+            # calculate force error
+            force_error = self.goal_force - self.current_force
+            print("Force error: ", force_error)
 
-                # calculate force error
-                #force_error = self.goal_force - self.current_force
-                force_error = internal_goal_force - self.current_force
-                print("Force error: ", force_error)
+            # compute relative position adjustment using PD control
+            position_adjustment = self.kp * force_error + self.kd * self.force_rate_filtered
 
-                # compute relative position adjustment using PD control
-                position_adjustment = self.kp * force_error + self.kd * self.force_rate_filtered
+            # apply saturation (to avoid excessive movements)
+            max_step = 42
+            position_adjustment = max(min(position_adjustment, max_step), -max_step)
 
-                # apply saturation (to avoid excessive movements)
-                #max_step = 42
-                #position_adjustment = max(min(position_adjustment, max_step), -max_step)
-
-                # update gripper position
-                self.set_goal_position(self.current_position + position_adjustment)
+            # update gripper position
+            self.set_goal_position(self.current_position + position_adjustment)
 
 
 def main(args=None):

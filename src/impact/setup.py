@@ -22,6 +22,8 @@ setup(
     license='Apache-2.0',
     entry_points={
         'console_scripts': [
+            'force_control = impact.force_control:main',
+            'force_trajectory_publisher = impact.force_trajectory_publisher:main',
         ],
     },
 )

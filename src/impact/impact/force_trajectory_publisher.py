@@ -2,6 +2,7 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float32
 from geometry_msgs.msg import WrenchStamped
+from impact_msgs.msg import GoalForceController
 from collections import deque
 
 
@@ -15,6 +16,11 @@ class ForceTrajectoryPublisher(Node):
         """
 
         super().__init__("force_trajectory_publisher")
+
+        # store control parameters
+        self.kp = 0.0
+        self.kd = 0.0
+        self.alpha = 0.0
 
         # store current and goal force
         self.current_force = None
@@ -30,10 +36,10 @@ class ForceTrajectoryPublisher(Node):
         self.message_queue = deque(maxlen=1)
 
         # create subscriber to set goal force of gripper
-        self.goal_force_subscriber = self.create_subscription(Float32, "set_resense_goal_force", self.set_force_goal, 10)
+        self.goal_force_subscriber = self.create_subscription(GoalForceController, "set_resense_goal_force", self.set_force_goal, 10)
 
         # create publsisher to set goal force of gripper
-        self.goal_force_publisher = self.create_publisher(Float32, "set_actuated_umi_goal_force", 10)
+        self.goal_force_publisher = self.create_publisher(GoalForceController, "set_actuated_umi_goal_force", 10)
 
         # create timer to control the force of the gripper
         self.control_frequency = 25
@@ -76,8 +82,12 @@ class ForceTrajectoryPublisher(Node):
         :return: None
         """
         
-        self.goal_force = msg.data
+        self.goal_force = msg.goal_force
         self.internal_goal_force = self.current_force
+
+        self.kp = msg.kp
+        self.kd = msg.kd
+        self.alpha = msg.alpha
 
 
     def pub_force_goal(self):
@@ -105,8 +115,11 @@ class ForceTrajectoryPublisher(Node):
                 self.internal_goal_force = self.goal_force
 
             # publish goal force
-            msg = Float32()
-            msg.data = self.internal_goal_force
+            msg = GoalForceController()
+            msg.goal_force = self.internal_goal_force
+            msg.kp = self.kp
+            msg.kd = self.kd
+            msg.alpha = self.alpha
             self.goal_force_publisher.publish(msg)
         
 
