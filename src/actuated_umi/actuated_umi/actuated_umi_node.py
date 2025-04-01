@@ -59,6 +59,7 @@ class ActuatedUMINode(Node):
 
         self.gripper.torque_enabled = False
         time.sleep(0.2)
+        self.gripper.__del__()
         self.connector.disconnect()
 
 
