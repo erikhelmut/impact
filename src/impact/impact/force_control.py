@@ -11,7 +11,7 @@ class ForceControl(Node):
 
     def __init__(self):
         """
-        This node controls the force of the gripper by setting the goal position of the motor.
+        This node controls the force of the gripper.
 
         :return: None
         """
@@ -19,9 +19,12 @@ class ForceControl(Node):
         super().__init__("force_control")
 
         # define control parameters
-        self.kp = 77  # proportional gain
-        self.kd = 10  # derivative gain
-        self.alpha = 0.8  # low-pass filter parameter
+        self.kp = 1  # proportional gain (77 for position control)
+        self.kd = 0  # derivative gain (10 for position control)
+        self.alpha = 0.8  # low-pass filter parameter (0.8 for position control)
+
+        # store pwm value
+        self.pwm = 0
 
         # store current force and goal force
         self.current_force = 0
@@ -32,14 +35,11 @@ class ForceControl(Node):
         self.prev_force = 0
         self.prev_force_rate_filtered = 0
 
-        # store current position of gripper
-        self.current_position = None
-
         # create publisher to set goal position of gripper
-        self.goal_position_publisher = self.create_publisher(Int16, "set_actuated_umi_motor_position", 10)
+        self.goal_pwm_publisher = self.create_publisher(Int16, "set_actuated_umi_motor_pwm", 10)
 
         # create subscriber to get current position of gripper
-        self.current_position_subscriber = self.create_subscription(JointState, "actuated_umi_motor_state", self.get_current_position, 10)
+        #self.current_position_subscriber = self.create_subscription(JointState, "actuated_umi_motor_state", self.get_current_position, 10)
 
         # create subscriber to get current force of gripper without callback
         self.current_force_subscriber = self.create_subscription(WrenchStamped, "resense_0", self.receive_force, 10)
@@ -58,28 +58,17 @@ class ForceControl(Node):
         self.force_control_timer = self.create_timer(1.0 / self.control_frequency, self.force_control)
 
 
-    def set_goal_position(self, position):
+    def set_goal_pwm(self, pwm):
         """
-        Set the goal motor position of the gripper.
+        Set the goal PWM value of the gripper.
 
-        :param position: goal position of gripper
+        :param pwm: goal PWM value of gripper
         :return: None
         """
 
         msg = Int16()
-        msg.data = int(position)
-        self.goal_position_publisher.publish(msg)
-
-
-    def get_current_position(self, msg):
-        """
-        Get the current motor position of the gripper.
-
-        :param msg: joint state message containing the current motor position
-        :return: None
-        """
-
-        self.current_position = msg.position[0]
+        msg.data = int(pwm)
+        self.goal_pwm_publisher.publish(msg)
 
     
     def set_goal_force(self, msg):
@@ -141,22 +130,29 @@ class ForceControl(Node):
         :return: None
         """
 
-        # control force if force control is active
-        if self.goal_force is not None and self.current_position is not None:
+        if self.goal_force is not None:
 
-            # calculate force error
-            force_error = self.goal_force - self.current_force
-            print("Force error: ", force_error)
+            # check that current force is not exceedind force limit
+            if self.current_force >= -6.0:
 
-            # compute relative position adjustment using PD control
-            position_adjustment = self.kp * force_error + self.kd * self.force_rate_filtered
+                # calculate force error
+                force_error = self.goal_force - self.current_force
+                print("Force error: ", force_error)
 
-            # apply saturation (to avoid excessive movements)
-            max_step = 42
-            position_adjustment = max(min(position_adjustment, max_step), -max_step)
+                # compute pwm duty using PD control
+                pwm_adjustment = self.kp * force_error + self.kd * self.force_rate_filtered
 
-            # update gripper position
-            self.set_goal_position(self.current_position + position_adjustment)
+                # apply saturation (to avoid excessive movements)
+                max_pwm = -200
+                min_pwm = 50
+                self.pwm = self.pwm + pwm_adjustment
+                self.pwm = max(min(self.pwm, min_pwm), max_pwm)
+
+            else:
+                self.pwm = 0
+
+            # update gripper pwm duty
+            self.set_goal_pwm(self.pwm)
 
 
 def main(args=None):

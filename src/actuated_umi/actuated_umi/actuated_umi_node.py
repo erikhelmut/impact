@@ -15,7 +15,7 @@ class ActuatedUMINode(Node):
 
     def __init__(self, device="/dev/ttyUSB0"):
         """
-        This node is responsible for controlling the actuated-UMI in extended position control mode. It publishes the current motor state of the gripper and subscribes to a topic to set the goal position of the gripper.
+        This node is responsible for controlling the actuated-UMI. It publishes the current motor state of the gripper and subscribes to a topic to set the goal position or goal pwm of the gripper.
         
         :param device: device to which the gripper is connected
         :return: None
@@ -30,12 +30,12 @@ class ActuatedUMINode(Node):
         # connect to the gripper
         self.gripper = ActuatedUMI(self.connector)
         self.gripper.torque_enabled = False
-        self.gripper.operating_mode = 4  # extended position control
+        self.gripper.operating_mode = 16  # pwm control
         
-        # set the PID gains
+        # set the PID gains for position control
         self.gripper.position_p_gain = 640
         self.gripper.position_i_gain = 0
-        self.gripper.position_d_gain = 3600
+        self.gripper.position_d_gain = 4000
 
         # enable torque
         self.gripper.torque_enabled = True
@@ -46,8 +46,12 @@ class ActuatedUMINode(Node):
         self.timer = self.create_timer(timer_period, self.get_current_state)
 
         # create subscriber to set goal position of gripper
-        self.subscriber = self.create_subscription(Int16, "set_actuated_umi_motor_position", self.set_goal_position, 10)
-        self.subscriber  # prevent unused variable warning
+        self.goal_position_subscriber = self.create_subscription(Int16, "set_actuated_umi_motor_position", self.set_goal_position, 10)
+        self.goal_position_subscriber  # prevent unused variable warning
+
+        # create subscriber to set goal PWM of gripper
+        self.goal_pwm_subscriber = self.create_subscription(Int16, "set_actuated_umi_motor_pwm", self.set_goal_pwm, 10)
+        self.goal_pwm_subscriber  # prevent unused variable warning
 
 
     def __del__(self):
@@ -71,9 +75,34 @@ class ActuatedUMINode(Node):
         :return: None
         """
 
+        # activate the gripper in extended position control mode
+        if self.gripper.operating_mode != 4:
+            self.gripper.torque_enabled = False
+            self.gripper.operating_mode = 4
+            self.gripper.torque_enabled = True
+
         # check if the goal position is within the limits
         if msg.data >= -2380:
             self.gripper.goal_position = msg.data
+
+
+    def set_goal_pwm(self, msg):
+        """
+        Set the goal PWM of the gripper.
+
+        :param msg: message containing the goal PWM value
+        :return: None
+        """
+
+        # activate the gripper in PWM control mode
+        if self.gripper.operating_mode != 16:
+            self.gripper.torque_enabled = False
+            self.gripper.operating_mode = 16
+            self.gripper.torque_enabled = True
+
+        # check if the pwm is between -885 and 885
+        if msg.data >= -885 and msg.data <= 885:
+            self.gripper.goal_pwm = msg.data
 
 
     def get_current_state(self):
