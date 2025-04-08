@@ -30,12 +30,16 @@ class ActuatedUMINode(Node):
         # connect to the gripper
         self.gripper = ActuatedUMI(self.connector)
         self.gripper.torque_enabled = False
-        self.gripper.operating_mode = 16  # pwm control
+        self.gripper.operating_mode = 1  # velocity control
         
         # set the PID gains for position control
         self.gripper.position_p_gain = 640
         self.gripper.position_i_gain = 0
         self.gripper.position_d_gain = 4000
+
+        # set the PI gains for velocity control
+        self.gripper.velocity_p_gain = 100
+        self.gripper.velocity_i_gain = 1000
 
         # enable torque
         self.gripper.torque_enabled = True
@@ -48,6 +52,10 @@ class ActuatedUMINode(Node):
         # create subscriber to set goal position of gripper
         self.goal_position_subscriber = self.create_subscription(Int16, "set_actuated_umi_motor_position", self.set_goal_position, 10)
         self.goal_position_subscriber  # prevent unused variable warning
+
+        # create subscriber to set goal velocity of gripper
+        self.goal_velocity_subscriber = self.create_subscription(Int16, "set_actuated_umi_motor_velocity", self.set_goal_velocity, 10)
+        self.goal_velocity_subscriber  # prevent unused variable warning
 
         # create subscriber to set goal PWM of gripper
         self.goal_pwm_subscriber = self.create_subscription(Int16, "set_actuated_umi_motor_pwm", self.set_goal_pwm, 10)
@@ -84,6 +92,25 @@ class ActuatedUMINode(Node):
         # check if the goal position is within the limits
         if msg.data >= -2380:
             self.gripper.goal_position = msg.data
+
+    
+    def set_goal_velocity(self, msg):
+        """
+        Set the goal motor velocity of the gripper.
+
+        :param msg: message containing the goal velocity
+        :return: None
+        """
+
+        # activate the gripper in velocity control mode
+        if self.gripper.operating_mode != 1:
+            self.gripper.torque_enabled = False
+            self.gripper.operating_mode = 1
+            self.gripper.torque_enabled = True
+        
+        # check if the goal velocity is within the limits
+        if msg.data >= -1023 and msg.data <= 1023:
+            self.gripper.goal_velocity = msg.data
 
 
     def set_goal_pwm(self, msg):

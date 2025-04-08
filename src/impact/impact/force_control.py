@@ -35,6 +35,9 @@ class ForceControl(Node):
         self.prev_force = 0
         self.prev_force_rate_filtered = 0
 
+        # create publisher to set goal velocity of gripper
+        self.goal_velocity_publisher = self.create_publisher(Int16, "set_actuated_umi_motor_velocity", 10)
+
         # create publisher to set goal position of gripper
         self.goal_pwm_publisher = self.create_publisher(Int16, "set_actuated_umi_motor_pwm", 10)
 
@@ -56,6 +59,19 @@ class ForceControl(Node):
         # create timer to control the force of the gripper
         self.control_frequency = 25
         self.force_control_timer = self.create_timer(1.0 / self.control_frequency, self.force_control)
+
+
+    def set_goal_velocity(self, velocity):
+        """
+        Set the goal velocity of the gripper.
+
+        :param velocity: goal velocity of gripper
+        :return: None
+        """
+
+        msg = Int16()
+        msg.data = int(velocity)
+        self.goal_velocity_publisher.publish(msg)
 
 
     def set_goal_pwm(self, pwm):
@@ -132,27 +148,19 @@ class ForceControl(Node):
 
         if self.goal_force is not None:
 
-            # check that current force is not exceedind force limit
-            if self.current_force >= -6.0:
+            # calculate force error
+            force_error = self.goal_force - self.current_force
+            print("Force error: ", force_error)
 
-                # calculate force error
-                force_error = self.goal_force - self.current_force
-                print("Force error: ", force_error)
+            # compute goal velocity
+            goal_velocity = self.kp * force_error + self.kd * self.force_rate_filtered
 
-                # compute pwm duty using PD control
-                pwm_adjustment = self.kp * force_error + self.kd * self.force_rate_filtered
-
-                # apply saturation (to avoid excessive movements)
-                max_pwm = -200
-                min_pwm = 50
-                self.pwm = self.pwm + pwm_adjustment
-                self.pwm = max(min(self.pwm, min_pwm), max_pwm)
-
-            else:
-                self.pwm = 0
+            # apply saturation (to avoid excessive movements)
+            velcity_limit = 10
+            goal_velocity = max(min(goal_velocity, velcity_limit), -velcity_limit)
 
             # update gripper pwm duty
-            self.set_goal_pwm(self.pwm)
+            self.set_goal_velocity(goal_velocity)
 
 
 def main(args=None):

@@ -1,11 +1,4 @@
 - save data as HDF5 file
-
-- use trajectory for input (sollsignal)
-- also clip the jumps (update of the reference value)
-- try to use I gain?
-- error below .3N should be fine
-
-- controller sollte mit 25hz laufen
-- clipp internes error, also wenn goal von außen 5n ist und aktuell 3n -> internes goal zu erst 3.1, dann 3.2, etc. weil max goal darf nur 0.1 größer sein
-- clippe den error und nicht direkt den interen error
-- es sollte sich intern erhöhen, aber nicht in abhängigkeit von dem was ichh aktuell habe
+- collect goal trajectory with umi gripper
+- choose pd controller gains for position controller that follows this trajectory with +/- 1N accuracy
+- maybe try using different p gains for opening and closing for different dynamics

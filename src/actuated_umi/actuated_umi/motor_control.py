@@ -34,5 +34,21 @@ class ActuatedUMI(Motor):
         self._Motor__write("position_d_gain", value)
 
     @property
+    def velocity_p_gain(self):
+        return self._Motor__read("velocity_p_gain")
+    
+    @velocity_p_gain.setter
+    def velocity_p_gain(self, value: int):
+        self._Motor__write("velocity_p_gain", value)
+
+    @property
+    def velocity_i_gain(self):
+        return self._Motor__read("velocity_i_gain")
+    
+    @velocity_i_gain.setter
+    def velocity_i_gain(self, value: int):
+        self._Motor__write("velocity_i_gain", value)
+
+    @property
     def current_load(self):
         return self._Motor__read("present_load")
