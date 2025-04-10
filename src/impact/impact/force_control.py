@@ -2,6 +2,7 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Int16, Float32
 from geometry_msgs.msg import WrenchStamped
+from feats_msgs.msg import ForceDistStamped
 from sensor_msgs.msg import JointState
 from impact_msgs.msg import GoalForceController
 from collections import deque
@@ -19,7 +20,7 @@ class ForceControl(Node):
         super().__init__("force_control")
 
         # define control parameters
-        self.kp = 1  # proportional gain (77 for position control)
+        self.kp = 4  # proportional gain (77 for position control)
         self.kd = 0  # derivative gain (10 for position control)
         self.alpha = 0.8  # low-pass filter parameter (0.8 for position control)
 
@@ -38,14 +39,11 @@ class ForceControl(Node):
         # create publisher to set goal velocity of gripper
         self.goal_velocity_publisher = self.create_publisher(Int16, "set_actuated_umi_motor_velocity", 10)
 
-        # create publisher to set goal position of gripper
-        self.goal_pwm_publisher = self.create_publisher(Int16, "set_actuated_umi_motor_pwm", 10)
-
         # create subscriber to get current position of gripper
         #self.current_position_subscriber = self.create_subscription(JointState, "actuated_umi_motor_state", self.get_current_position, 10)
 
         # create subscriber to get current force of gripper without callback
-        self.current_force_subscriber = self.create_subscription(WrenchStamped, "resense_0", self.receive_force, 10)
+        self.current_force_subscriber = self.create_subscription(ForceDistStamped, "feats", self.receive_force, 10)
         self.current_force_subscriber  # prevent unused variable warning
         # timer to process messages at 25 Hz (40 ms interval)
         self.resense_timer = self.create_timer(1.0 / 25, self.get_current_force)
@@ -74,19 +72,6 @@ class ForceControl(Node):
         self.goal_velocity_publisher.publish(msg)
 
 
-    def set_goal_pwm(self, pwm):
-        """
-        Set the goal PWM value of the gripper.
-
-        :param pwm: goal PWM value of gripper
-        :return: None
-        """
-
-        msg = Int16()
-        msg.data = int(pwm)
-        self.goal_pwm_publisher.publish(msg)
-
-    
     def set_goal_force(self, msg):
         """
         Set the goal normal force of the gripper.
@@ -127,7 +112,8 @@ class ForceControl(Node):
 
             # store previous and current force
             self.prev_force = self.current_force
-            self.current_force = msg.wrench.force.z
+            #self.current_force = msg.wrench.force.z
+            self.current_force = msg.f_z
 
             # store previous force rate
             self.prev_force_rate_filtered = self.force_rate_filtered

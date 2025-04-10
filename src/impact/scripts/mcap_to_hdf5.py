@@ -4,6 +4,11 @@ from rosidl_runtime_py.utilities import get_message
 from std_msgs.msg import Int16
 import rosbag2_py
 
+from aruco_msgs.msg import ArUcoDistStamped
+
+import numpy as np
+import h5py
+
 
 class RosbagReader():
 
@@ -77,12 +82,14 @@ def main():
 
     # create reader object
     rr = RosbagReader(args.input)
+    print(rr.topic_types)
 
     for topic, msg, timestamp in rr.read_messages():
-        if isinstance(msg, Int16):
-            print(f"{topic} [{timestamp}]: '{msg.data}'")
-        else:
-            print(f"{topic} [{timestamp}]: ({type(msg).__name__})")
+        if isinstance(msg, ArUcoDistStamped):
+            print(f"{topic} [{timestamp}]: '{msg.distance}'")
+
+        if topic == "/actuated_umi_motor_state":
+            print(f"{topic} [{timestamp}]: '{msg.position}'")
 
         input()
    
