@@ -1,0 +1,7 @@
+<launch>
+    <node pkg="actuated_umi" exec="actuated_umi_node"/>
+    <node pkg="realsense_d405" exec="realsense_d405_node"/>
+    <node pkg="realsense_d405" exec="detect_aruco_node"/>
+    <node pkg="gelsight_mini" exec="gelsight_mini_node"/>
+    <node pkg="feats" exec="feats_node"/>
+</launch>
