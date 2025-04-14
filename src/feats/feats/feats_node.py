@@ -111,7 +111,7 @@ class FEATSNode(Node):
         self.clim_z = (-0.17, 0.0)
 
         # create subscriber to get current image of the gelsight mini
-        self.gelsight_subscriber = self.create_subscription(Image, "gelsight_mini_image", self.pub_prediction, 10)
+        self.gelsight_subscriber = self.create_subscription(Image, "gelsight_mini_image", self.pub_prediction, 100)
         self.gelsight_subscriber  # prevent unused variable warning
 
         # create publisher for FEATS
