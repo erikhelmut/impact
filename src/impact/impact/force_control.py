@@ -6,6 +6,18 @@ from feats_msgs.msg import ForceDistStamped
 from sensor_msgs.msg import JointState
 from impact_msgs.msg import GoalForceController
 from collections import deque
+import copy
+
+
+class MovingAverage:
+
+    def __init__(self, size):
+        self.window = deque(maxlen=size)
+
+
+    def filter(self, value):
+        self.window.append(value)
+        return sum(self.window) / len(self.window)
 
 
 class ForceControl(Node):
@@ -20,14 +32,12 @@ class ForceControl(Node):
         super().__init__("force_control")
 
         # define control parameters
-        self.kp = 4  # proportional gain (77 for position control)
-        self.kd = 0  # derivative gain (10 for position control)
-        self.alpha = 0.8  # low-pass filter parameter (0.8 for position control)
+        self.kp = 25  # proportional gain
+        self.kd = 0  # derivative gain
+        self.alpha = 0.8  # low-pass filter parameter
 
-        # store pwm value
-        self.pwm = 0
-
-        # store current force and goal force
+        # store current position, force and goal force
+        self.current_position = None
         self.current_force = 0
         self.force_rate_filtered = 0
         self.goal_force = None
@@ -36,40 +46,47 @@ class ForceControl(Node):
         self.prev_force = 0
         self.prev_force_rate_filtered = 0
 
-        # create publisher to set goal velocity of gripper
-        self.goal_velocity_publisher = self.create_publisher(Int16, "set_actuated_umi_motor_velocity", 10)
+        # store time of previous and current message
+        self.prev_time = 0
+        self.current_time = 0
+
+        # moving average filter for force
+        self.filt = MovingAverage(size=10)
+        self.current_force_filtered = 0
+
+        # create publisher to set goal position of gripper
+        self.goal_position_publisher = self.create_publisher(Int16, "set_actuated_umi_motor_position", 10)
 
         # create subscriber to get current position of gripper
-        #self.current_position_subscriber = self.create_subscription(JointState, "actuated_umi_motor_state", self.get_current_position, 10)
+        self.current_position_subscriber = self.create_subscription(JointState, "actuated_umi_motor_state", self.get_current_position, 10)
 
         # create subscriber to get current force of gripper without callback
-        self.current_force_subscriber = self.create_subscription(ForceDistStamped, "feats", self.receive_force, 10)
+        self.current_force_subscriber = self.create_subscription(ForceDistStamped, "feats", self.get_current_force, 10)
         self.current_force_subscriber  # prevent unused variable warning
-        # timer to process messages at 25 Hz (40 ms interval)
-        self.resense_timer = self.create_timer(1.0 / 25, self.get_current_force)
-        # buffer to store incoming messages
-        self.message_queue = deque(maxlen=1)
 
         # create subscriber to set goal force of gripper
         self.goal_force_subscriber = self.create_subscription(GoalForceController, "set_actuated_umi_goal_force", self.set_goal_force, 10)
         self.goal_force_subscriber  # prevent unused variable warning
 
         # create timer to control the force of the gripper
-        self.control_frequency = 25
+        self.control_frequency = 50
         self.force_control_timer = self.create_timer(1.0 / self.control_frequency, self.force_control)
 
+        # create publisher for filtered force
+        self.filtered_force_publisher = self.create_publisher(Float32, "filtered_force", 10)
 
-    def set_goal_velocity(self, velocity):
+
+    def set_goal_position(self, position_adjustment):
         """
-        Set the goal velocity of the gripper.
+        Set the goal position of the gripper.
 
-        :param velocity: goal velocity of gripper
+        :param position: goal position of gripper
         :return: None
         """
 
         msg = Int16()
-        msg.data = int(velocity)
-        self.goal_velocity_publisher.publish(msg)
+        msg.data = int(self.current_position + position_adjustment)
+        self.goal_position_publisher.publish(msg)
 
 
     def set_goal_force(self, msg):
@@ -86,43 +103,48 @@ class ForceControl(Node):
         self.alpha = msg.alpha
 
 
-    def receive_force(self, msg):
+    def get_current_position(self, msg):
         """
-        Receive the current force of the gripper.
-
-        :param msg: wrench message containing the current normal force
+        Get the current position of the gripper.
+        
+        :param msg: message containing the current position
         :return: None
         """
 
-        self.message_queue.append(msg)
+        self.current_position = msg.position[0]
 
 
-    def get_current_force(self):
+    def get_current_force(self, msg):
         """
-        Get the current normal force of the gripper in 25 Hz.
+        Get the current normal force of the gripper.
         Calculate the force rate and apply a low-pass filter to it.
 
         :return: None
         """
 
-        if self.message_queue:
+        # store previous
+        self.prev_force = copy.copy(self.current_force)
+        self.prev_time = copy.copy(self.current_time)
 
-            # get latest message
-            msg = self.message_queue.popleft()
+        # store previous force rate
+        self.prev_force_rate_filtered = copy.copy(self.force_rate_filtered)
+        
+        # store current force
+        self.current_force = msg.f_z
+        self.current_time = self.get_clock().now()
+        self.current_time = self.current_time.nanoseconds / 1e9  # convert to seconds
 
-            # store previous and current force
-            self.prev_force = self.current_force
-            #self.current_force = msg.wrench.force.z
-            self.current_force = msg.f_z
+        # calculate force rate (raw derivative)
+        force_rate_unfiltered = (self.current_force - self.prev_force) / (self.current_time - self.prev_time)
 
-            # store previous force rate
-            self.prev_force_rate_filtered = self.force_rate_filtered
+        # apply low-pass filter to force rate and store it
+        self.force_rate_filtered = self.alpha * self.prev_force_rate_filtered + (1 - self.alpha) * force_rate_unfiltered
 
-            # calculate force rate (raw derivative)
-            force_rate_unfiltered = (self.current_force - self.prev_force) / (1.0 / self.control_frequency)
-
-            # apply low-pass filter to force rate and store it
-            self.force_rate_filtered = self.alpha * self.prev_force_rate_filtered + (1 - self.alpha) * force_rate_unfiltered
+        # filter force
+        filtered_force = Float32()
+        self.current_force_filtered = self.filt.filter(self.current_force)
+        filtered_force.data = self.current_force_filtered
+        self.filtered_force_publisher.publish(filtered_force)
 
 
     def force_control(self):
@@ -132,21 +154,21 @@ class ForceControl(Node):
         :return: None
         """
 
-        if self.goal_force is not None:
+        if self.goal_force is not None and self.current_position is not None:
 
             # calculate force error
-            force_error = self.goal_force - self.current_force
+            force_error = self.goal_force - self.current_force_filtered #self.current_force
             print("Force error: ", force_error)
 
-            # compute goal velocity
-            goal_velocity = self.kp * force_error + self.kd * self.force_rate_filtered
+            # compute position adjustment
+            position_adjustment = self.kp * force_error + self.kd * self.force_rate_filtered
 
             # apply saturation (to avoid excessive movements)
-            velcity_limit = 10
-            goal_velocity = max(min(goal_velocity, velcity_limit), -velcity_limit)
+            rel_position_limit = 50
+            position_adjustment = max(min(position_adjustment, rel_position_limit), -rel_position_limit)
 
-            # update gripper pwm duty
-            self.set_goal_velocity(goal_velocity)
+            # update goal position
+            self.set_goal_position(position_adjustment)
 
 
 def main(args=None):
