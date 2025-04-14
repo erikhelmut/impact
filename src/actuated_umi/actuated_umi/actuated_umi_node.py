@@ -146,8 +146,8 @@ class ActuatedUMINode(Node):
         msg.header = header
         msg.name = ["Dynamixel XL430-W250-T"]
         msg.position = np.array([self.gripper.current_position])
-        msg.velocity = np.array([self.gripper.current_velocity])
-        msg.effort = np.array([self.gripper.current_load])
+        #msg.velocity = np.array([self.gripper.current_velocity])
+        #msg.effort = np.array([self.gripper.current_load])
         self.publisher_.publish(msg)
 
 
