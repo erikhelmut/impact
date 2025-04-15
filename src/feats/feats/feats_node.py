@@ -1,5 +1,6 @@
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 from sensor_msgs.msg import Image
 
 import os
@@ -111,14 +112,26 @@ class FEATSNode(Node):
         self.clim_z = (-0.17, 0.0)
 
         # create subscriber to get current image of the gelsight mini
-        self.gelsight_subscriber = self.create_subscription(Image, "gelsight_mini_image", self.pub_prediction, 100)
+        gelsight_subscriber_qos_profile = QoSProfile(
+            reliability=QoSReliabilityPolicy.BEST_EFFORT,
+            history=QoSHistoryPolicy.KEEP_LAST,
+            depth=1
+        )
+        self.gelsight_subscriber = self.create_subscription(Image, "gelsight_mini_image", self.pub_prediction, gelsight_subscriber_qos_profile)
         self.gelsight_subscriber  # prevent unused variable warning
 
         # create publisher for FEATS
-        self.feats_publisher_ = self.create_publisher(ForceDistStamped, "feats", 10)
-        self.feats_x_publisher_ = self.create_publisher(Image, "feats_fx_image", 10)
-        self.feats_y_publisher_ = self.create_publisher(Image, "feats_fy_image", 10)
-        self.feats_z_publisher_ = self.create_publisher(Image, "feats_fz_image", 10)
+        feats_publisher_qos_profile = QoSProfile(
+            reliability=QoSReliabilityPolicy.BEST_EFFORT,
+            history=QoSHistoryPolicy.KEEP_LAST,
+            depth=1
+        )
+        self.feats_x_publisher_ = self.create_publisher(ForceDistStamped, "feats_fx", feats_publisher_qos_profile)
+        self.feats_y_publisher_ = self.create_publisher(ForceDistStamped, "feats_fy", feats_publisher_qos_profile)
+        self.feats_z_publisher_ = self.create_publisher(ForceDistStamped, "feats_fz", feats_publisher_qos_profile)
+        self.feats_x_image_publisher_ = self.create_publisher(Image, "feats_fx_image", feats_publisher_qos_profile)
+        self.feats_y_image_publisher_ = self.create_publisher(Image, "feats_fy_image", feats_publisher_qos_profile)
+        self.feats_z_image_publisher_ = self.create_publisher(Image, "feats_fz_image", feats_publisher_qos_profile)
 
 
     def pub_prediction(self, msg):
@@ -155,7 +168,7 @@ class FEATSNode(Node):
         pred_grid_x_msg.encoding = "bgr8"
         pred_grid_x_msg.step = pred_grid_x.shape[1] * 3
         pred_grid_x_msg.header.frame_id = "feats_fx_image"
-        self.feats_x_publisher_.publish(pred_grid_x_msg)
+        self.feats_x_image_publisher_.publish(pred_grid_x_msg)
         
         # create Image message for y
         pred_grid_y = (pred_grid_y - self.clim_y[0]) / (self.clim_y[1] - self.clim_y[0])
@@ -172,7 +185,7 @@ class FEATSNode(Node):
         pred_grid_y_msg.encoding = "bgr8"
         pred_grid_y_msg.step = pred_grid_y.shape[1] * 3
         pred_grid_y_msg.header.frame_id = "feats_fy_image"
-        self.feats_y_publisher_.publish(pred_grid_y_msg)
+        self.feats_y_image_publisher_.publish(pred_grid_y_msg)
 
         # create Image message for z
         pred_grid_z = (pred_grid_z - self.clim_z[0]) / (self.clim_z[1] - self.clim_z[0])
@@ -189,18 +202,29 @@ class FEATSNode(Node):
         pred_grid_z_msg.encoding = "bgr8"
         pred_grid_z_msg.step = pred_grid_z.shape[1] * 3
         pred_grid_z_msg.header.frame_id = "feats_fz_image"
-        self.feats_z_publisher_.publish(pred_grid_z_msg)
+        self.feats_z_image_publisher_.publish(pred_grid_z_msg)
         
         # create ForceDistStamped message
-        feats_msg = ForceDistStamped()
-        feats_msg.header = msg.header
-        feats_msg.fd_x = pred_grid_x.flatten().tolist()
-        feats_msg.fd_y = pred_grid_y.flatten().tolist()
-        feats_msg.fd_z = pred_grid_z.flatten().tolist()
-        feats_msg.f_x = f_x.item()
-        feats_msg.f_y = f_y.item()
-        feats_msg.f_z = f_z.item()
-        self.feats_publisher_.publish(feats_msg)
+        feats_x_msg = ForceDistStamped()
+        feats_x_msg.header = msg.header
+        feats_x_msg.force = "f_x"
+        feats_x_msg.f = f_x.item()
+        #feats_x_msg.fd = pred_grid_x.flatten()
+        self.feats_x_publisher_.publish(feats_x_msg)
+
+        feats_y_msg = ForceDistStamped()
+        feats_y_msg.header = msg.header
+        feats_y_msg.force = "f_y"
+        feats_y_msg.f = f_y.item()
+        #feats_y_msg.fd = pred_grid_y.flatten()
+        self.feats_y_publisher_.publish(feats_y_msg)
+
+        feats_z_msg = ForceDistStamped()
+        feats_z_msg.header = msg.header
+        feats_z_msg.force = "f_z"
+        feats_z_msg.f = f_z.item()
+        #feats_z_msg.fd = pred_grid_z.flatten()
+        self.feats_z_publisher_.publish(feats_z_msg)
 
 
 def main(args=None):
@@ -213,7 +237,7 @@ def main(args=None):
 
     try:
 
-        print("FEATS Node is running... Press <ctrl> <c> to stop. \nPredicted force distributions are being published on topic /feats or /feats_fX_image. \n")
+        print("FEATS Node is running... Press <ctrl> <c> to stop. \nPredicted force distributions are being published on topic /feats_fX or /feats_fX_image. \n")
 
         rclpy.init(args=args)
 
