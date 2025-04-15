@@ -1,5 +1,6 @@
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 from std_msgs.msg import Int16, Float32
 from geometry_msgs.msg import WrenchStamped
 from feats_msgs.msg import ForceDistStamped
@@ -52,7 +53,6 @@ class ForceControl(Node):
 
         # moving average filter for force
         self.filt = MovingAverage(size=10)
-        self.current_force_filtered = 0
 
         # create publisher to set goal position of gripper
         self.goal_position_publisher = self.create_publisher(Int16, "set_actuated_umi_motor_position", 10)
@@ -61,8 +61,21 @@ class ForceControl(Node):
         self.current_position_subscriber = self.create_subscription(JointState, "actuated_umi_motor_state", self.get_current_position, 10)
 
         # create subscriber to get current force of gripper without callback
-        self.current_force_subscriber = self.create_subscription(ForceDistStamped, "feats", self.get_current_force, 10)
+        current_force_subscriber_qos_profile = QoSProfile(
+            reliability=QoSReliabilityPolicy.BEST_EFFORT,
+            history=QoSHistoryPolicy.KEEP_LAST,
+            depth=1
+        )
+        self.current_force_subscriber = self.create_subscription(ForceDistStamped, "feats_fz", self.get_current_force, current_force_subscriber_qos_profile)
         self.current_force_subscriber  # prevent unused variable warning
+
+        # create publisher for filtered force
+        ma_force_publisher_qos_profile = QoSProfile(
+            reliability=QoSReliabilityPolicy.BEST_EFFORT,
+            history=QoSHistoryPolicy.KEEP_LAST,
+            depth=1
+        )
+        self.filtered_force_publisher = self.create_publisher(Float32, "feats_ma_fz", ma_force_publisher_qos_profile)
 
         # create subscriber to set goal force of gripper
         self.goal_force_subscriber = self.create_subscription(GoalForceController, "set_actuated_umi_goal_force", self.set_goal_force, 10)
@@ -72,10 +85,7 @@ class ForceControl(Node):
         self.control_frequency = 50
         self.force_control_timer = self.create_timer(1.0 / self.control_frequency, self.force_control)
 
-        # create publisher for filtered force
-        self.filtered_force_publisher = self.create_publisher(Float32, "filtered_force", 10)
-
-
+        
     def set_goal_position(self, position_adjustment):
         """
         Set the goal position of the gripper.
@@ -130,7 +140,7 @@ class ForceControl(Node):
         self.prev_force_rate_filtered = copy.copy(self.force_rate_filtered)
         
         # store current force
-        self.current_force = msg.f_z
+        self.current_force = self.filt.filter(msg.f)
         self.current_time = self.get_clock().now()
         self.current_time = self.current_time.nanoseconds / 1e9  # convert to seconds
 
@@ -140,10 +150,9 @@ class ForceControl(Node):
         # apply low-pass filter to force rate and store it
         self.force_rate_filtered = self.alpha * self.prev_force_rate_filtered + (1 - self.alpha) * force_rate_unfiltered
 
-        # filter force
+        # publish filtered force
         filtered_force = Float32()
-        self.current_force_filtered = self.filt.filter(self.current_force)
-        filtered_force.data = self.current_force_filtered
+        filtered_force.data = self.current_force
         self.filtered_force_publisher.publish(filtered_force)
 
 
@@ -157,7 +166,7 @@ class ForceControl(Node):
         if self.goal_force is not None and self.current_position is not None:
 
             # calculate force error
-            force_error = self.goal_force - self.current_force_filtered #self.current_force
+            force_error = self.goal_force - self.current_force
             print("Force error: ", force_error)
 
             # compute position adjustment
