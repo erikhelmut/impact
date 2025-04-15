@@ -24,7 +24,7 @@ class ActuatedUMINode(Node):
         super().__init__("actuated_umi_node")
 
         # setup connector for the Dynamixel XL430-W250-T
-        self.connector = XL430W250TConnector(device=device, baud_rate=57600, dynamixel_id=1)
+        self.connector = XL430W250TConnector(device=device, baud_rate=2000000, dynamixel_id=1)
         self.connector.connect()
 
         # connect to the gripper
@@ -91,6 +91,8 @@ class ActuatedUMINode(Node):
 
         # check if the goal position is within the limits
         if msg.data >= -2380:
+            # TODO: try async write
+            # self.gripper.__connector.write_async
             self.gripper.goal_position = msg.data
 
     
