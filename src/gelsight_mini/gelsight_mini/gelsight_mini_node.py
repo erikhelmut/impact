@@ -1,5 +1,6 @@
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 from sensor_msgs.msg import Image
 
 from gelsight_mini.gsdevice import GelSight
@@ -32,7 +33,12 @@ class GelSightMiniNode(Node):
         self.bridge = CvBridge()
 
         # create publisher for the GelSight Mini
-        self.gs_mini_publisher_ = self.create_publisher(Image, "gelsight_mini_image", 10)
+        gelsight_publisher_qos_profile = QoSProfile(
+            reliability=QoSReliabilityPolicy.BEST_EFFORT,
+            history=QoSHistoryPolicy.KEEP_LAST,
+            depth=1
+        )
+        self.gs_mini_publisher_ = self.create_publisher(Image, "gelsight_mini_image", gelsight_publisher_qos_profile)
         timer_period = 1.0 / 25  # 25 Hz
         self.timer = self.create_timer(timer_period, self.get_image)
 
