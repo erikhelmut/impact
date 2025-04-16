@@ -1,7 +1,6 @@
 import argparse
 from rclpy.serialization import deserialize_message
 from rosidl_runtime_py.utilities import get_message
-from std_msgs.msg import Int16
 import rosbag2_py
 
 from aruco_msgs.msg import ArUcoDistStamped
@@ -82,17 +81,71 @@ def main():
 
     # create reader object
     rr = RosbagReader(args.input)
-    print(rr.topic_types)
+
+    # create hdf5 file
+    hdf5_filename = "../hdf5_data/" + args.input.split("/")[-1].split(".")[0] + ".hdf5"
+    hdf5_file = h5py.File(hdf5_filename, "w")
+
+    # create hdf5 groups
+    gs_mini_grp = hdf5_file.create_group("gelsight_mini")
+    gs_mini_img = []
+    gs_mini_timestamps = []
+
+    realsense_d405_grp = hdf5_file.create_group("realsense_d405")
+    realsense_d405_color_img = []
+    realsense_d405_depth_img = []
+    realsense_d405_aruco_dist = []
+    realsense_d405_timestamps = []
+
+    feats_grp = hdf5_file.create_group("feats")
+    feats_fz = []
+    feats_fz_dist = []
+    feats_timestamps = []
 
     for topic, msg, timestamp in rr.read_messages():
-        if isinstance(msg, ArUcoDistStamped):
-            print(f"{topic} [{timestamp}]: '{msg.distance}'")
+        #if isinstance(msg, ArUcoDistStamped):
+        #    print(f"{topic} [{timestamp}]: '{msg.distance}'")
 
-        if topic == "/actuated_umi_motor_state":
-            print(f"{topic} [{timestamp}]: '{msg.position}'")
+        #if topic == "/actuated_umi_motor_state":
+        #    print(f"{topic} [{timestamp}]: '{msg.position}'")
 
-        input()
-   
+        if topic == "/gelsight_mini_image":
+            gs_mini_img.append(msg.data)
+            gs_mini_timestamps.append(timestamp)
+
+        if topic == "/feats_fz":
+            print(f"{topic} [{timestamp}]: '{msg.f}'")
+            feats_fz.append(msg.f)
+            feats_fz_dist.append(msg.fd)
+            feats_timestamps.append(timestamp)
+
+    # save dataset
+    gs_mini_grp.create_dataset(
+        "gs_mini_img",
+        data=np.array(gs_mini_img, dtype=np.uint8),
+    )
+    gs_mini_grp.create_dataset(
+        "gs_mini_timestamps",
+        data=np.array(gs_mini_timestamps, dtype=np.float32),
+    )
+
+
+    feats_grp.create_dataset(
+        "feats_fz",
+        data=np.array(feats_fz, dtype=np.float32),
+    )
+    feats_grp.create_dataset(
+        "feats_fz_dist",
+        data=np.array(feats_fz_dist, dtype=np.float32),
+    )
+    feats_grp.create_dataset(
+        "feats_timestamps",
+        data=np.array(feats_timestamps, dtype=np.float32),
+    )
+
+    # close hdf5 file
+    hdf5_file.close()
+
 
 if __name__ == "__main__":
 
