@@ -154,53 +154,53 @@ class FEATSNode(Node):
         f_z = np.sum(pred_grid_z)
         
         # create Image message for x
-        pred_grid_x = (pred_grid_x - self.clim_x[0]) / (self.clim_x[1] - self.clim_x[0])
-        pred_grid_x = np.clip(pred_grid_x, 0, 1) * 255
-        pred_grid_x = np.uint8(pred_grid_x)
-        pred_grid_x = cv2.applyColorMap(pred_grid_x, cv2.COLORMAP_VIRIDIS)
-        pred_grid_x = cv2.resize(pred_grid_x, (320, 240), interpolation=cv2.INTER_NEAREST)
+        pred_grid_x_img = (pred_grid_x - self.clim_x[0]) / (self.clim_x[1] - self.clim_x[0])
+        pred_grid_x_img = np.clip(pred_grid_x_img, 0, 1) * 255
+        pred_grid_x_img = np.uint8(pred_grid_x_img)
+        pred_grid_x_img = cv2.applyColorMap(pred_grid_x_img, cv2.COLORMAP_VIRIDIS)
+        pred_grid_x_img = cv2.resize(pred_grid_x_img, (320, 240), interpolation=cv2.INTER_NEAREST)
 
         pred_grid_x_msg = Image()
         pred_grid_x_msg.header = msg.header
-        pred_grid_x_msg.data = pred_grid_x.tobytes()
-        pred_grid_x_msg.height = pred_grid_x.shape[0]
-        pred_grid_x_msg.width = pred_grid_x.shape[1]
+        pred_grid_x_msg.data = pred_grid_x_img.tobytes()
+        pred_grid_x_msg.height = pred_grid_x_img.shape[0]
+        pred_grid_x_msg.width = pred_grid_x_img.shape[1]
         pred_grid_x_msg.encoding = "bgr8"
-        pred_grid_x_msg.step = pred_grid_x.shape[1] * 3
+        pred_grid_x_msg.step = pred_grid_x_img.shape[1] * 3
         pred_grid_x_msg.header.frame_id = "feats_fx_image"
         self.feats_x_image_publisher_.publish(pred_grid_x_msg)
         
         # create Image message for y
-        pred_grid_y = (pred_grid_y - self.clim_y[0]) / (self.clim_y[1] - self.clim_y[0])
-        pred_grid_y = np.clip(pred_grid_y, 0, 1) * 255
-        pred_grid_y = np.uint8(pred_grid_y)
-        pred_grid_y = cv2.applyColorMap(pred_grid_y, cv2.COLORMAP_VIRIDIS)
-        pred_grid_y = cv2.resize(pred_grid_y, (320, 240), interpolation=cv2.INTER_NEAREST)
+        pred_grid_y_img = (pred_grid_y - self.clim_y[0]) / (self.clim_y[1] - self.clim_y[0])
+        pred_grid_y_img = np.clip(pred_grid_y_img, 0, 1) * 255
+        pred_grid_y_img = np.uint8(pred_grid_y_img)
+        pred_grid_y_img = cv2.applyColorMap(pred_grid_y_img, cv2.COLORMAP_VIRIDIS)
+        pred_grid_y_img = cv2.resize(pred_grid_y_img, (320, 240), interpolation=cv2.INTER_NEAREST)
         
         pred_grid_y_msg = Image()
         pred_grid_y_msg.header = msg.header
-        pred_grid_y_msg.data = pred_grid_y.tobytes()
-        pred_grid_y_msg.height = pred_grid_y.shape[0]
-        pred_grid_y_msg.width = pred_grid_y.shape[1]
+        pred_grid_y_msg.data = pred_grid_y_img.tobytes()
+        pred_grid_y_msg.height = pred_grid_y_img.shape[0]
+        pred_grid_y_msg.width = pred_grid_y_img.shape[1]
         pred_grid_y_msg.encoding = "bgr8"
-        pred_grid_y_msg.step = pred_grid_y.shape[1] * 3
+        pred_grid_y_msg.step = pred_grid_y_img.shape[1] * 3
         pred_grid_y_msg.header.frame_id = "feats_fy_image"
         self.feats_y_image_publisher_.publish(pred_grid_y_msg)
 
         # create Image message for z
-        pred_grid_z = (pred_grid_z - self.clim_z[0]) / (self.clim_z[1] - self.clim_z[0])
-        pred_grid_z = np.clip(pred_grid_z, 0, 1) * 255
-        pred_grid_z = np.uint8(pred_grid_z)
-        pred_grid_z = cv2.applyColorMap(pred_grid_z, cv2.COLORMAP_VIRIDIS)
-        pred_grid_z = cv2.resize(pred_grid_z, (320, 240), interpolation=cv2.INTER_NEAREST)
+        pred_grid_z_img = (pred_grid_z - self.clim_z[0]) / (self.clim_z[1] - self.clim_z[0])
+        pred_grid_z_img = np.clip(pred_grid_z_img, 0, 1) * 255
+        pred_grid_z_img = np.uint8(pred_grid_z_img)
+        pred_grid_z_img = cv2.applyColorMap(pred_grid_z_img, cv2.COLORMAP_VIRIDIS)
+        pred_grid_z_img = cv2.resize(pred_grid_z_img, (320, 240), interpolation=cv2.INTER_NEAREST)
 
         pred_grid_z_msg = Image()
         pred_grid_z_msg.header = msg.header
-        pred_grid_z_msg.data = pred_grid_z.tobytes()
-        pred_grid_z_msg.height = pred_grid_z.shape[0]
-        pred_grid_z_msg.width = pred_grid_z.shape[1]
+        pred_grid_z_msg.data = pred_grid_z_img.tobytes()
+        pred_grid_z_msg.height = pred_grid_z_img.shape[0]
+        pred_grid_z_msg.width = pred_grid_z_img.shape[1]
         pred_grid_z_msg.encoding = "bgr8"
-        pred_grid_z_msg.step = pred_grid_z.shape[1] * 3
+        pred_grid_z_msg.step = pred_grid_z_img.shape[1] * 3
         pred_grid_z_msg.header.frame_id = "feats_fz_image"
         self.feats_z_image_publisher_.publish(pred_grid_z_msg)
         
@@ -209,21 +209,21 @@ class FEATSNode(Node):
         feats_x_msg.header = msg.header
         feats_x_msg.force = "f_x"
         feats_x_msg.f = f_x.item()
-        #feats_x_msg.fd = pred_grid_x.flatten()
+        feats_x_msg.fd = pred_grid_x.flatten()
         self.feats_x_publisher_.publish(feats_x_msg)
 
         feats_y_msg = ForceDistStamped()
         feats_y_msg.header = msg.header
         feats_y_msg.force = "f_y"
         feats_y_msg.f = f_y.item()
-        #feats_y_msg.fd = pred_grid_y.flatten()
+        feats_y_msg.fd = pred_grid_y.flatten()
         self.feats_y_publisher_.publish(feats_y_msg)
 
         feats_z_msg = ForceDistStamped()
         feats_z_msg.header = msg.header
         feats_z_msg.force = "f_z"
         feats_z_msg.f = f_z.item()
-        #feats_z_msg.fd = pred_grid_z.flatten()
+        feats_z_msg.fd = pred_grid_z.flatten()
         self.feats_z_publisher_.publish(feats_z_msg)
 
 
