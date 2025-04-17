@@ -1,6 +1,25 @@
 <launch>
-    <node pkg="realsense_d405" exec="realsense_d405_node"/>
-    <node pkg="realsense_d405" exec="detect_aruco_node"/>
-    <node pkg="gelsight_mini" exec="gelsight_mini_node"/>
-    <node pkg="feats" exec="feats_node"/>
+
+    <node pkg="gelsight_mini" exec="gelsight_mini_node">
+        <param from="config/data_collection.yaml"/>
+    </node>
+    
+    <node pkg="feats" exec="feats_node">
+        <param name="reliability" value="reliable"/>
+        <param name="history" value="keep_last"/>
+        <param name="depth" value="5"/>
+    </node>
+
+    <node pkg="realsense_d405" exec="realsense_d405_node">
+        <param name="reliability" value="reliable"/>
+        <param name="history" value="keep_last"/>
+        <param name="depth" value="5"/>
+    </node>
+
+    <node pkg="realsense_d405" exec="detect_aruco_node">
+        <param name="reliability" value="reliable"/>
+        <param name="history" value="keep_last"/>
+        <param name="depth" value="5"/>
+    </node>
+
 </launch>

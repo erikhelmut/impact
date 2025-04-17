@@ -15,7 +15,7 @@ class ActuatedUMINode(Node):
 
     def __init__(self, device="/dev/ttyUSB0"):
         """
-        This node is responsible for controlling the actuated-UMI. It publishes the current motor state of the gripper and subscribes to a topic to set the goal position or goal pwm of the gripper.
+        This node is responsible for controlling the actuated-UMI. It publishes the current motor state of the gripper and subscribes to a topic to set the goal position, goal velocity or goal pwm of the gripper.
         
         :param device: device to which the gripper is connected
         :return: None

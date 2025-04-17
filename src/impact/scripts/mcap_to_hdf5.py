@@ -3,10 +3,9 @@ from rclpy.serialization import deserialize_message
 from rosidl_runtime_py.utilities import get_message
 import rosbag2_py
 
-from aruco_msgs.msg import ArUcoDistStamped
+import h5py
 
 import numpy as np
-import h5py
 
 
 class RosbagReader():
@@ -72,7 +71,13 @@ class RosbagReader():
 
 
 def main():
+    """
+    MCAP to HDF5 converter script.
 
+    :return: None
+    """
+
+    # parse arguments
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--input", help="input bag path (folder or filepath) to read from"
@@ -91,35 +96,58 @@ def main():
     gs_mini_img = []
     gs_mini_timestamps = []
 
+    feats_grp = hdf5_file.create_group("feats")
+    feats_fx = []; feats_fy = []; feats_fz = []
+    feats_fdx = []; feats_fdy = []; feats_fdz = []
+    feats_timestamps = []
+
     realsense_d405_grp = hdf5_file.create_group("realsense_d405")
-    realsense_d405_color_img = []
-    realsense_d405_depth_img = []
+    realsense_d405_color_img = []; realsense_d405_depth_img = []
     realsense_d405_aruco_dist = []
     realsense_d405_timestamps = []
 
-    feats_grp = hdf5_file.create_group("feats")
-    feats_fz = []
-    feats_fz_dist = []
-    feats_timestamps = []
 
+    # iterate over messages
     for topic, msg, timestamp in rr.read_messages():
-        #if isinstance(msg, ArUcoDistStamped):
-        #    print(f"{topic} [{timestamp}]: '{msg.distance}'")
-
-        #if topic == "/actuated_umi_motor_state":
-        #    print(f"{topic} [{timestamp}]: '{msg.position}'")
 
         if topic == "/gelsight_mini_image":
             gs_mini_img.append(msg.data)
             gs_mini_timestamps.append(timestamp)
 
-        if topic == "/feats_fz":
-            print(f"{topic} [{timestamp}]: '{msg.f}'")
+        elif topic == "/feats_fx":
+            print("feats_fx", timestamp)
+            feats_fx.append(msg.f)
+            feats_fdx.append(msg.fd)
+
+        elif topic == "/feats_fy":
+            print("feats_fy", timestamp)
+            feats_fy.append(msg.f)
+            feats_fdy.append(msg.fd)
+
+        elif topic == "/feats_fz":
+            print("feats_fz", timestamp)
             feats_fz.append(msg.f)
-            feats_fz_dist.append(msg.fd)
+            feats_fdz.append(msg.fd)
             feats_timestamps.append(timestamp)
 
-    # save dataset
+        elif topic == "/realsense_d405_color_image":
+            realsense_d405_color_img.append(msg.data)
+            realsense_d405_timestamps.append(timestamp)
+
+        elif topic == "/realsense_d405_depth_image":
+            realsense_d405_depth_img.append(msg.data)
+
+        elif topic == "/realsense_d405_aruco_dist":
+            realsense_d405_aruco_dist.append(msg.distance)
+            # TODO: check how to handle the timestamp for this message...
+            # ideally it should be the same timestamp as the color image in this case right?
+            # same for feats... but here idk if the timestamp is the same?
+            # feats should all have the same timestamp and this should be identical to the gelsight mini image timestamp
+            # at the end all lists should be the same length..
+            # maybe filter it out before saving to hdf5?
+
+
+    # save datasets
     gs_mini_grp.create_dataset(
         "gs_mini_img",
         data=np.array(gs_mini_img, dtype=np.uint8),
@@ -129,6 +157,23 @@ def main():
         data=np.array(gs_mini_timestamps, dtype=np.float32),
     )
 
+    feats_grp.create_dataset(
+        "feats_fx",
+        data=np.array(feats_fx, dtype=np.float32),
+    )
+    feats_grp.create_dataset(
+        "feats_fdx",
+        data=np.array(feats_fdx, dtype=np.float32),
+    )
+    feats_grp.create_dataset(
+        "feats_fy",
+        data=np.array(feats_fy, dtype=np.float32),
+    )
+    feats_grp.create_dataset(
+        "feats_fdy",
+        data=np.array(feats_fdy, dtype=np.float32),
+    )
+
 
     feats_grp.create_dataset(
         "feats_fz",
@@ -136,7 +181,7 @@ def main():
     )
     feats_grp.create_dataset(
         "feats_fz_dist",
-        data=np.array(feats_fz_dist, dtype=np.float32),
+        data=np.array(feats_fdz, dtype=np.float32),
     )
     feats_grp.create_dataset(
         "feats_timestamps",

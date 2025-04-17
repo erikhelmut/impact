@@ -33,11 +33,18 @@ class GelSightMiniNode(Node):
         self.bridge = CvBridge()
 
         # create publisher for the GelSight Mini
+        reliability_param = self.declare_parameter("reliability", "reliable").value
+        history_param = self.declare_parameter("history", "keep_last").value
+        depth_param = self.declare_parameter("depth", 10).value
+        reliability = QoSReliabilityPolicy.RELIABLE if reliability_param == "reliable" else QoSReliabilityPolicy.BEST_EFFORT
+        histroy = QoSHistoryPolicy.KEEP_LAST if history_param == "keep_last" else QoSHistoryPolicy.KEEP_ALL
+        
         gelsight_publisher_qos_profile = QoSProfile(
-            reliability=QoSReliabilityPolicy.BEST_EFFORT,
-            history=QoSHistoryPolicy.KEEP_LAST,
-            depth=1
+            reliability=reliability,
+            history=histroy,
+            depth=depth_param
         )
+        
         self.gs_mini_publisher_ = self.create_publisher(Image, "gelsight_mini_image", gelsight_publisher_qos_profile)
         timer_period = 1.0 / 25  # 25 Hz
         self.timer = self.create_timer(timer_period, self.get_image)
