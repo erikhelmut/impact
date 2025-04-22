@@ -1,0 +1,10 @@
+feats_node:
+  ros__parameters:
+    gs_mini.qos.reliability: reliable
+    gs_mini.qos.history: keep_all
+    gs_mini.qos.depth: 10
+
+    feats.qos.reliability: reliable
+    feats.qos.history: keep_all
+    feats.qos.depth: 10
+

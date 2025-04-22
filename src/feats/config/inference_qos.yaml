@@ -1,0 +1,9 @@
+feats_node:
+  ros__parameters:
+    gs_mini.qos.reliability: best_effort
+    gs_mini.qos.history: keep_last
+    gs_mini.qos.depth: 1
+
+    feats.qos.reliability: best_effort
+    feats.qos.history: keep_last
+    feats.qos.depth: 1
