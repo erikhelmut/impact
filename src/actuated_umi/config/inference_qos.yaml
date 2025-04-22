@@ -1,0 +1,5 @@
+actuated_umi_node:
+  ros__parameters:
+    actuated_umi.qos.reliability: best_effort
+    actuated_umi.qos.history: keep_last
+    actuated_umi.qos.depth: 1

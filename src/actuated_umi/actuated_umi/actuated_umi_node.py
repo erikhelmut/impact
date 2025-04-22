@@ -1,5 +1,6 @@
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 from std_msgs.msg import Int16, Header
 from sensor_msgs.msg import JointState
 
@@ -44,21 +45,29 @@ class ActuatedUMINode(Node):
         # enable torque
         self.gripper.torque_enabled = True
 
+        # declare parameters for QoS settings
+        self.declare_parameter("actuated_umi.qos.reliability", "reliable")
+        self.declare_parameter("actuated_umi.qos.history", "keep_last")
+        self.declare_parameter("actuated_umi.qos.depth", 10)
+
+        # get QoS profile
+        qos_profile = self.get_qos_profile("actuated_umi.qos")
+
         # create publisher for current position of gripper
-        self.publisher_ = self.create_publisher(JointState, "actuated_umi_motor_state", 10)
+        self.publisher_ = self.create_publisher(JointState, "actuated_umi_motor_state", qos_profile)
         timer_period = 0.02  # 50 Hz
         self.timer = self.create_timer(timer_period, self.get_current_state)
 
         # create subscriber to set goal position of gripper
-        self.goal_position_subscriber = self.create_subscription(Int16, "set_actuated_umi_motor_position", self.set_goal_position, 10)
+        self.goal_position_subscriber = self.create_subscription(Int16, "set_actuated_umi_motor_position", self.set_goal_position, qos_profile)
         self.goal_position_subscriber  # prevent unused variable warning
 
         # create subscriber to set goal velocity of gripper
-        self.goal_velocity_subscriber = self.create_subscription(Int16, "set_actuated_umi_motor_velocity", self.set_goal_velocity, 10)
+        self.goal_velocity_subscriber = self.create_subscription(Int16, "set_actuated_umi_motor_velocity", self.set_goal_velocity, qos_profile)
         self.goal_velocity_subscriber  # prevent unused variable warning
 
         # create subscriber to set goal PWM of gripper
-        self.goal_pwm_subscriber = self.create_subscription(Int16, "set_actuated_umi_motor_pwm", self.set_goal_pwm, 10)
+        self.goal_pwm_subscriber = self.create_subscription(Int16, "set_actuated_umi_motor_pwm", self.set_goal_pwm, qos_profile)
         self.goal_pwm_subscriber  # prevent unused variable warning
 
 
@@ -73,6 +82,57 @@ class ActuatedUMINode(Node):
         time.sleep(0.2)
         self.gripper.__del__()
         self.connector.disconnect()
+
+
+    def get_qos_profile(self, base_param_name):
+        """
+        Helper function to retrieve and validate QoS settings.
+        
+        :param base_param_name: base name of the QoS parameters
+        :return: QoSProfile object
+        """
+        
+        # get the parameter values
+        reliability_param = self.get_parameter(f"{base_param_name}.reliability").value
+        history_param = self.get_parameter(f"{base_param_name}.history").value
+        depth_param = self.get_parameter(f"{base_param_name}.depth").value
+
+        # normalize to lowercase to avoid mismatches
+        reliability_param = str(reliability_param).lower()
+        history_param = str(history_param).lower()
+
+        self.get_logger().info(f"QoS settings: reliability={reliability_param}, history={history_param}, depth={depth_param}")
+
+        # convert to QoS enums with fallback
+        if reliability_param == "best_effort":
+            reliability = QoSReliabilityPolicy.BEST_EFFORT
+        elif reliability_param == "reliable":
+            reliability = QoSReliabilityPolicy.RELIABLE
+        else:
+            self.get_logger().warn(f"Unknown reliability: {reliability_param}, defaulting to RELIABLE")
+            reliability = QoSReliabilityPolicy.RELIABLE
+
+        if history_param == "keep_last":
+            history = QoSHistoryPolicy.KEEP_LAST
+        elif history_param == "keep_all":
+            history = QoSHistoryPolicy.KEEP_ALL
+        else:
+            self.get_logger().warn(f"Unknown history: {history_param}, defaulting to KEEP_LAST")
+            history = QoSHistoryPolicy.KEEP_LAST
+
+        # depth should be an int, just check type or cast
+        try:
+            depth = int(depth_param)
+        except (ValueError, TypeError):
+            self.get_logger().warn(f"Invalid depth: {depth_param}, defaulting to 10")
+            depth = 10
+
+        # return the QoSProfile
+        return QoSProfile(
+            reliability=reliability,
+            history=history,
+            depth=depth
+        )
 
 
     def set_goal_position(self, msg):
