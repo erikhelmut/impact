@@ -1,5 +1,6 @@
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 from std_msgs.msg import Header
 from sensor_msgs.msg import Image
 
@@ -20,9 +21,17 @@ class RealSenseD405Node(Node):
         # initialze camera
         self.cam = RealSenseD405(img_shape=(640, 480))
 
+        # declare parameters for QoS settings
+        self.declare_parameter("rs_d405.qos.reliability", "reliable")
+        self.declare_parameter("rs_d405.qos.history", "keep_last")
+        self.declare_parameter("rs_d405.qos.depth", 10)
+
+        # get QoS profile
+        qos_profile = self.get_qos_profile("rs_d405.qos")
+
         # create publisher for color and depth image
-        self.color_publisher_ = self.create_publisher(Image, "realsense_d405_color_image", 10)
-        self.depth_publisher_ = self.create_publisher(Image, "realsense_d405_depth_image", 10)
+        self.color_publisher_ = self.create_publisher(Image, "realsense_d405_color_image", qos_profile)
+        self.depth_publisher_ = self.create_publisher(Image, "realsense_d405_depth_image", qos_profile)
         timer_period = 1.0 / 30  # 30 Hz
         self.timer = self.create_timer(timer_period, self.get_frames)
 
@@ -35,6 +44,57 @@ class RealSenseD405Node(Node):
         """
         
         self.cam.__del__()
+
+
+    def get_qos_profile(self, base_param_name):
+        """
+        Helper function to retrieve and validate QoS settings.
+        
+        :param base_param_name: base name of the QoS parameters
+        :return: QoSProfile object
+        """
+        
+        # get the parameter values
+        reliability_param = self.get_parameter(f"{base_param_name}.reliability").value
+        history_param = self.get_parameter(f"{base_param_name}.history").value
+        depth_param = self.get_parameter(f"{base_param_name}.depth").value
+
+        # normalize to lowercase to avoid mismatches
+        reliability_param = str(reliability_param).lower()
+        history_param = str(history_param).lower()
+
+        self.get_logger().info(f"QoS settings: reliability={reliability_param}, history={history_param}, depth={depth_param}")
+
+        # convert to QoS enums with fallback
+        if reliability_param == "best_effort":
+            reliability = QoSReliabilityPolicy.BEST_EFFORT
+        elif reliability_param == "reliable":
+            reliability = QoSReliabilityPolicy.RELIABLE
+        else:
+            self.get_logger().warn(f"Unknown reliability: {reliability_param}, defaulting to RELIABLE")
+            reliability = QoSReliabilityPolicy.RELIABLE
+
+        if history_param == "keep_last":
+            history = QoSHistoryPolicy.KEEP_LAST
+        elif history_param == "keep_all":
+            history = QoSHistoryPolicy.KEEP_ALL
+        else:
+            self.get_logger().warn(f"Unknown history: {history_param}, defaulting to KEEP_LAST")
+            history = QoSHistoryPolicy.KEEP_LAST
+
+        # depth should be an int, just check type or cast
+        try:
+            depth = int(depth_param)
+        except (ValueError, TypeError):
+            self.get_logger().warn(f"Invalid depth: {depth_param}, defaulting to 10")
+            depth = 10
+
+        # return the QoSProfile
+        return QoSProfile(
+            reliability=reliability,
+            history=history,
+            depth=depth
+        )
 
 
     def get_frames(self):

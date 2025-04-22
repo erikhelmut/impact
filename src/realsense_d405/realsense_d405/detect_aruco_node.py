@@ -1,5 +1,6 @@
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 from std_msgs.msg import Header
 from sensor_msgs.msg import Image
 from aruco_msgs.msg import ArUcoMarkerStamped, ArUcoDistStamped
@@ -23,20 +24,79 @@ class DetectArUcoNode(Node):
         self.aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_100)
         self.parameters = cv2.aruco.DetectorParameters()
 
+        # declare parameters for QoS settings
+        self.declare_parameter("rs_d405.qos.reliability", "reliable")
+        self.declare_parameter("rs_d405.qos.history", "keep_last")
+        self.declare_parameter("rs_d405.qos.depth", 10)
+
+        # get QoS profile
+        qos_profile = self.get_qos_profile("rs_d405.qos")
+
         # create subscriber to detect ArUco markers
-        self.subscriber = self.create_subscription(Image, "realsense_d405_color_image", self.detect_aruco, 10)
+        self.subscriber = self.create_subscription(Image, "realsense_d405_color_image", self.detect_aruco, qos_profile)
         self.subscriber  # prevent unused variable warning
 
         # create publishers for detected markers with id 0 and 1
-        self.marker_0_publisher = self.create_publisher(ArUcoMarkerStamped, "aruco_marker_0", 10)
-        self.marker_1_publisher = self.create_publisher(ArUcoMarkerStamped, "aruco_marker_1", 10)
+        self.marker_0_publisher = self.create_publisher(ArUcoMarkerStamped, "aruco_marker_0", qos_profile)
+        self.marker_1_publisher = self.create_publisher(ArUcoMarkerStamped, "aruco_marker_1", qos_profile)
         self.marker_publisher = {0: self.marker_0_publisher, 1: self.marker_1_publisher}
 
         # create publisher for distance between markers
-        self.distance_publisher = self.create_publisher(ArUcoDistStamped, "aruco_distance", 10)
+        self.distance_publisher = self.create_publisher(ArUcoDistStamped, "aruco_distance", qos_profile)
 
         # create publisher for image with detected markers and distance
-        self.image_publisher = self.create_publisher(Image, "realsense_d405_color_image_aruco", 10)
+        self.image_publisher = self.create_publisher(Image, "realsense_d405_color_image_aruco", qos_profile)
+
+
+    def get_qos_profile(self, base_param_name):
+        """
+        Helper function to retrieve and validate QoS settings.
+        
+        :param base_param_name: base name of the QoS parameters
+        :return: QoSProfile object
+        """
+        
+        # get the parameter values
+        reliability_param = self.get_parameter(f"{base_param_name}.reliability").value
+        history_param = self.get_parameter(f"{base_param_name}.history").value
+        depth_param = self.get_parameter(f"{base_param_name}.depth").value
+
+        # normalize to lowercase to avoid mismatches
+        reliability_param = str(reliability_param).lower()
+        history_param = str(history_param).lower()
+
+        self.get_logger().info(f"QoS settings: reliability={reliability_param}, history={history_param}, depth={depth_param}")
+
+        # convert to QoS enums with fallback
+        if reliability_param == "best_effort":
+            reliability = QoSReliabilityPolicy.BEST_EFFORT
+        elif reliability_param == "reliable":
+            reliability = QoSReliabilityPolicy.RELIABLE
+        else:
+            self.get_logger().warn(f"Unknown reliability: {reliability_param}, defaulting to RELIABLE")
+            reliability = QoSReliabilityPolicy.RELIABLE
+
+        if history_param == "keep_last":
+            history = QoSHistoryPolicy.KEEP_LAST
+        elif history_param == "keep_all":
+            history = QoSHistoryPolicy.KEEP_ALL
+        else:
+            self.get_logger().warn(f"Unknown history: {history_param}, defaulting to KEEP_LAST")
+            history = QoSHistoryPolicy.KEEP_LAST
+
+        # depth should be an int, just check type or cast
+        try:
+            depth = int(depth_param)
+        except (ValueError, TypeError):
+            self.get_logger().warn(f"Invalid depth: {depth_param}, defaulting to 10")
+            depth = 10
+
+        # return the QoSProfile
+        return QoSProfile(
+            reliability=reliability,
+            history=history,
+            depth=depth
+        )
 
 
     def calculate_distance(self, corners, ids):
