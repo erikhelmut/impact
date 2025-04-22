@@ -1,0 +1,6 @@
+norm_file: models/normalization_08042025_122519.npy
+model: models/unet_09042025_124903_80.pt
+calibration_file: null
+enc_chs: [3, 16, 32, 64, 128, 256]
+dec_chs: [256, 128, 64, 32, 16]
+output_size: [24, 32]
