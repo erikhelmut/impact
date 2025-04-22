@@ -1,0 +1,6 @@
+gelsight_mini_node:
+  ros__parameters:
+    gs_mini.qos.reliability: reliable
+    gs_mini.qos.history: keep_all
+    gs_mini.qos.depth: 10
+

@@ -31,23 +31,70 @@ class GelSightMiniNode(Node):
 
         # initialize cv bridge
         self.bridge = CvBridge()
+        
+        # declare parameters for QoS settings
+        self.declare_parameter("gs_mini.qos.reliability", "reliable")
+        self.declare_parameter("gs_mini.qos.history", "keep_last")
+        self.declare_parameter("gs_mini.qos.depth", 10)
 
+        # get QoS profile
+        qos_profile = self.get_qos_profile("gs_mini.qos")
+        
         # create publisher for the GelSight Mini
-        reliability_param = self.declare_parameter("reliability", "reliable").value
-        history_param = self.declare_parameter("history", "keep_last").value
-        depth_param = self.declare_parameter("depth", 10).value
-        reliability = QoSReliabilityPolicy.RELIABLE if reliability_param == "reliable" else QoSReliabilityPolicy.BEST_EFFORT
-        histroy = QoSHistoryPolicy.KEEP_LAST if history_param == "keep_last" else QoSHistoryPolicy.KEEP_ALL
-        
-        gelsight_publisher_qos_profile = QoSProfile(
-            reliability=reliability,
-            history=histroy,
-            depth=depth_param
-        )
-        
-        self.gs_mini_publisher_ = self.create_publisher(Image, "gelsight_mini_image", gelsight_publisher_qos_profile)
+        self.gs_mini_publisher_ = self.create_publisher(Image, "gelsight_mini_image", qos_profile)
         timer_period = 1.0 / 25  # 25 Hz
         self.timer = self.create_timer(timer_period, self.get_image)
+
+    
+    def get_qos_profile(self, base_param_name):
+        """
+        Helper function to retrieve and validate QoS settings.
+        
+        :param base_param_name: base name of the QoS parameters
+        :return: QoSProfile object
+        """
+        
+        # get the parameter values
+        reliability_param = self.get_parameter(f"{base_param_name}.reliability").value
+        history_param = self.get_parameter(f"{base_param_name}.history").value
+        depth_param = self.get_parameter(f"{base_param_name}.depth").value
+
+        # normalize to lowercase to avoid mismatches
+        reliability_param = str(reliability_param).lower()
+        history_param = str(history_param).lower()
+
+        self.get_logger().info(f"QoS settings: reliability={reliability_param}, history={history_param}, depth={depth_param}")
+
+        # convert to QoS enums with fallback
+        if reliability_param == "best_effort":
+            reliability = QoSReliabilityPolicy.BEST_EFFORT
+        elif reliability_param == "reliable":
+            reliability = QoSReliabilityPolicy.RELIABLE
+        else:
+            self.get_logger().warn(f"Unknown reliability: {reliability_param}, defaulting to RELIABLE")
+            reliability = QoSReliabilityPolicy.RELIABLE
+
+        if history_param == "keep_last":
+            history = QoSHistoryPolicy.KEEP_LAST
+        elif history_param == "keep_all":
+            history = QoSHistoryPolicy.KEEP_ALL
+        else:
+            self.get_logger().warn(f"Unknown history: {history_param}, defaulting to KEEP_LAST")
+            history = QoSHistoryPolicy.KEEP_LAST
+
+        # depth should be an int, just check type or cast
+        try:
+            depth = int(depth_param)
+        except (ValueError, TypeError):
+            self.get_logger().warn(f"Invalid depth: {depth_param}, defaulting to 10")
+            depth = 10
+
+        # return the QoSProfile
+        return QoSProfile(
+            reliability=reliability,
+            history=history,
+            depth=depth
+        )
 
 
     def get_image(self):
