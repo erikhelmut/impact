@@ -7,48 +7,48 @@ class ActuatedUMI(Motor):
         super().__init__(connector)
 
     def __del__(self):
-        self._Motor_write("torque_enable", False)
+        self.connector.write_field("torque_enable", False)
 
     @property
     def position_p_gain(self):
-        return self._Motor__read("position_p_gain")
+        return self.connector.read_field("position_p_gain")
     
     @position_p_gain.setter
     def position_p_gain(self, value: int):
-        self._Motor__write("position_p_gain", value)
+        self.connector.write_field("position_p_gain", value)
 
     @property
     def position_i_gain(self):
-        return self._Motor__read("position_i_gain")
+        return self.connector.read_field("position_i_gain")
     
     @position_i_gain.setter
     def position_i_gain(self, value: int):
-        self._Motor__write("position_i_gain", value)
+        self.connector.write_field("position_i_gain", value)
 
     @property
     def position_d_gain(self):
-        return self._Motor__read("position_d_gain")
+        return self.connector.read_field("position_d_gain")
     
     @position_d_gain.setter
     def position_d_gain(self, value: int):
-        self._Motor__write("position_d_gain", value)
+        self.connector.write_field("position_d_gain", value)
 
     @property
     def velocity_p_gain(self):
-        return self._Motor__read("velocity_p_gain")
+        return self.connector.read_field("velocity_p_gain")
     
     @velocity_p_gain.setter
     def velocity_p_gain(self, value: int):
-        self._Motor__write("velocity_p_gain", value)
+        self.connector.write_field("velocity_p_gain", value)
 
     @property
     def velocity_i_gain(self):
-        return self._Motor__read("velocity_i_gain")
+        return self.connector.read_field("velocity_i_gain")
     
     @velocity_i_gain.setter
     def velocity_i_gain(self, value: int):
-        self._Motor__write("velocity_i_gain", value)
+        self.connector.write_field("velocity_i_gain", value)
 
     @property
     def current_load(self):
-        return self._Motor__read("present_load")
+        return self.connector.read_field("present_load")
