@@ -151,9 +151,7 @@ class ActuatedUMINode(Node):
 
         # check if the goal position is within the limits
         if msg.data >= -2380:
-            # TODO: try async write
-            # self.gripper.__connector.write_async
-            self.gripper.goal_position = msg.data
+            self.gripper.connector.write_field("goal_position", msg.data)
 
     
     def set_goal_velocity(self, msg):
@@ -172,7 +170,7 @@ class ActuatedUMINode(Node):
         
         # check if the goal velocity is within the limits
         if msg.data >= -1023 and msg.data <= 1023:
-            self.gripper.goal_velocity = msg.data
+            self.gripper.connector.write_field("goal_velocity", msg.data)
 
 
     def set_goal_pwm(self, msg):
@@ -191,7 +189,7 @@ class ActuatedUMINode(Node):
 
         # check if the pwm is between -885 and 885
         if msg.data >= -885 and msg.data <= 885:
-            self.gripper.goal_pwm = msg.data
+            self.gripper.connector.write_field("goal_pwm", msg.data)
 
 
     def get_current_state(self):
@@ -207,9 +205,14 @@ class ActuatedUMINode(Node):
         msg = JointState()
         msg.header = header
         msg.name = ["Dynamixel XL430-W250-T"]
-        msg.position = np.array([self.gripper.current_position])
-        #msg.velocity = np.array([self.gripper.current_velocity])
-        #msg.effort = np.array([self.gripper.current_load])
+        
+        future_current_position = self.gripper.connector.read_field("present_position")
+        future_current_velocity = self.gripper.connector.read_field("present_velocity")
+        future_current_load = self.gripper.connector.read_field("present_load")
+        msg.position = np.array([future_current_position.result()])
+        msg.velocity = np.array([future_current_velocity.result()])
+        msg.effort = np.array([future_current_load.result()])
+        
         self.publisher_.publish(msg)
 
 
