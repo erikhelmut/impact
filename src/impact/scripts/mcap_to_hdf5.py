@@ -196,7 +196,6 @@ def main():
 
     realsense_d405_color_img = time_filter_list(gs_mini_timestamps, realsense_d405_color_img_timestamps, realsense_d405_color_img)
     realsense_d405_depth_img = time_filter_list(gs_mini_timestamps, realsense_d405_depth_img_timestamps, realsense_d405_depth_img)
-    # TODO: check how do i handle cases where the distance is not available?
     realsense_d405_aruco_dist = time_filter_list(gs_mini_timestamps, realsense_d405_aruco_dist_timestamps, realsense_d405_aruco_dist)
     realsense_d405_timestamps = copy.deepcopy(gs_mini_timestamps)
 
