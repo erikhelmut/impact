@@ -37,12 +37,12 @@ class DetectArUcoNode(Node):
         self.subscriber  # prevent unused variable warning
 
         # create publishers for detected markers with id 0 and 1
-        self.marker_0_publisher = self.create_publisher(ArUcoMarkerStamped, "aruco_marker_0", qos_profile)
-        self.marker_1_publisher = self.create_publisher(ArUcoMarkerStamped, "aruco_marker_1", qos_profile)
+        self.marker_0_publisher = self.create_publisher(ArUcoMarkerStamped, "realsense_d405_aruco_marker_0", qos_profile)
+        self.marker_1_publisher = self.create_publisher(ArUcoMarkerStamped, "realsense_d405_aruco_marker_1", qos_profile)
         self.marker_publisher = {0: self.marker_0_publisher, 1: self.marker_1_publisher}
 
         # create publisher for distance between markers
-        self.distance_publisher = self.create_publisher(ArUcoDistStamped, "aruco_distance", qos_profile)
+        self.distance_publisher = self.create_publisher(ArUcoDistStamped, "realsense_d405_aruco_distance", qos_profile)
 
         # create publisher for image with detected markers and distance
         self.image_publisher = self.create_publisher(Image, "realsense_d405_color_image_aruco", qos_profile)
