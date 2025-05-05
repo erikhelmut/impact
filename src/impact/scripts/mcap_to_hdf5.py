@@ -3,8 +3,8 @@ from rclpy.serialization import deserialize_message
 from rosidl_runtime_py.utilities import get_message
 import rosbag2_py
 
+import copy
 import h5py
-
 import numpy as np
 
 
@@ -70,6 +70,43 @@ class RosbagReader():
             yield topic, msg, timestamp
 
 
+def convert_timestamp_to_float(timestamp):
+    """
+    Helper function to convert a timestamp to a float.
+
+    :param timestamp: timestamp to convert
+    :return: converted timestamp
+    """
+
+    return timestamp.sec + timestamp.nanosec * 1e-9
+
+
+def time_filter_list(ref_timestamps, target_timestamps, target_list, delta_t=0.1):
+    """
+    Filter a list based on the closest timestamps in another list.
+
+    :param ref_timestamps: reference timestamps
+    :param target_timestamps: target timestamps
+    :param target_list: target list to filter
+    :return: filtered list
+    """
+
+    filtered_list = []
+    
+    for ts in ref_timestamps:
+        # find the closest timestamp in target_timestamps
+        closest_ts = min(target_timestamps, key=lambda x: abs(x - ts))
+        index = target_timestamps.index(closest_ts)
+
+        # append the corresponding value to the filtered list
+        if abs(closest_ts - ts) < delta_t:
+            filtered_list.append(target_list[index])
+        else:
+            filtered_list.append(None)
+
+    return filtered_list
+
+
 def main():
     """
     MCAP to HDF5 converter script.
@@ -99,52 +136,69 @@ def main():
     feats_grp = hdf5_file.create_group("feats")
     feats_fx = []; feats_fy = []; feats_fz = []
     feats_fdx = []; feats_fdy = []; feats_fdz = []
-    feats_timestamps = []
+    feats_fx_timestamps = []; feats_fy_timestamps = []; feats_fz_timestamps = []
 
     realsense_d405_grp = hdf5_file.create_group("realsense_d405")
-    realsense_d405_color_img = []; realsense_d405_depth_img = []
-    realsense_d405_aruco_dist = []
-    realsense_d405_timestamps = []
+    realsense_d405_color_img = []; realsense_d405_depth_img = []; realsense_d405_aruco_dist = []
+    realsense_d405_color_img_timestamps = []; realsense_d405_depth_img_timestamps = []; realsense_d405_aruco_dist_timestamps = []
 
 
     # iterate over messages
-    for topic, msg, timestamp in rr.read_messages():
+    for topic, msg, _ in rr.read_messages():
 
         if topic == "/gelsight_mini_image":
             gs_mini_img.append(msg.data)
-            gs_mini_timestamps.append(timestamp)
+            gs_mini_timestamps.append(convert_timestamp_to_float(msg.header.stamp))
 
         elif topic == "/feats_fx":
-            print("feats_fx", timestamp)
             feats_fx.append(msg.f)
             feats_fdx.append(msg.fd)
+            feats_fx_timestamps.append(convert_timestamp_to_float(msg.header.stamp))
 
         elif topic == "/feats_fy":
-            print("feats_fy", timestamp)
             feats_fy.append(msg.f)
             feats_fdy.append(msg.fd)
+            feats_fy_timestamps.append(convert_timestamp_to_float(msg.header.stamp))
 
         elif topic == "/feats_fz":
-            print("feats_fz", timestamp)
             feats_fz.append(msg.f)
             feats_fdz.append(msg.fd)
-            feats_timestamps.append(timestamp)
+            feats_fz_timestamps.append(convert_timestamp_to_float(msg.header.stamp))
 
         elif topic == "/realsense_d405_color_image":
             realsense_d405_color_img.append(msg.data)
-            realsense_d405_timestamps.append(timestamp)
+            realsense_d405_color_img_timestamps.append(convert_timestamp_to_float(msg.header.stamp))
 
         elif topic == "/realsense_d405_depth_image":
             realsense_d405_depth_img.append(msg.data)
+            realsense_d405_depth_img_timestamps.append(convert_timestamp_to_float(msg.header.stamp))
 
-        elif topic == "/realsense_d405_aruco_dist":
+        elif topic == "/realsense_d405_aruco_distance":
             realsense_d405_aruco_dist.append(msg.distance)
-            # TODO: check how to handle the timestamp for this message...
-            # ideally it should be the same timestamp as the color image in this case right?
-            # same for feats... but here idk if the timestamp is the same?
-            # feats should all have the same timestamp and this should be identical to the gelsight mini image timestamp
-            # at the end all lists should be the same length..
-            # maybe filter it out before saving to hdf5?
+            realsense_d405_aruco_dist_timestamps.append(convert_timestamp_to_float(msg.header.stamp))
+
+
+    # close reader object
+    del rr
+
+    # remove first and last 10 points from gs_mini_img
+    gs_mini_img = gs_mini_img[10:-10]
+    gs_mini_timestamps = gs_mini_timestamps[10:-10]
+
+    # filter lists based on timestamps of gs_mini
+    feats_fx = time_filter_list(gs_mini_timestamps, feats_fx_timestamps, feats_fx)
+    feats_fdx = time_filter_list(gs_mini_timestamps, feats_fx_timestamps, feats_fdx)
+    feats_fy = time_filter_list(gs_mini_timestamps, feats_fy_timestamps, feats_fy)
+    feats_fdy = time_filter_list(gs_mini_timestamps, feats_fy_timestamps, feats_fdy)
+    feats_fz = time_filter_list(gs_mini_timestamps, feats_fz_timestamps, feats_fz)
+    feats_fdz = time_filter_list(gs_mini_timestamps, feats_fz_timestamps, feats_fdz)
+    feats_timestamps = copy.deepcopy(gs_mini_timestamps)
+
+    realsense_d405_color_img = time_filter_list(gs_mini_timestamps, realsense_d405_color_img_timestamps, realsense_d405_color_img)
+    realsense_d405_depth_img = time_filter_list(gs_mini_timestamps, realsense_d405_depth_img_timestamps, realsense_d405_depth_img)
+    # TODO: check how do i handle cases where the distance is not available?
+    realsense_d405_aruco_dist = time_filter_list(gs_mini_timestamps, realsense_d405_aruco_dist_timestamps, realsense_d405_aruco_dist)
+    realsense_d405_timestamps = copy.deepcopy(gs_mini_timestamps)
 
 
     # save datasets
@@ -173,8 +227,6 @@ def main():
         "feats_fdy",
         data=np.array(feats_fdy, dtype=np.float32),
     )
-
-
     feats_grp.create_dataset(
         "feats_fz",
         data=np.array(feats_fz, dtype=np.float32),
@@ -187,6 +239,24 @@ def main():
         "feats_timestamps",
         data=np.array(feats_timestamps, dtype=np.float32),
     )
+
+    realsense_d405_grp.create_dataset(
+        "realsense_d405_color_img",
+        data=np.array(realsense_d405_color_img, dtype=np.uint8),
+    )
+    realsense_d405_grp.create_dataset(
+        "realsense_d405_depth_img",
+        data=np.array(realsense_d405_depth_img, dtype=np.uint8),
+    )
+    realsense_d405_grp.create_dataset(
+        "realsense_d405_aruco_dist",
+        data=np.array(realsense_d405_aruco_dist, dtype=np.float32),
+    )
+    realsense_d405_grp.create_dataset(
+        "realsense_d405_timestamps",
+        data=np.array(realsense_d405_timestamps, dtype=np.float32),
+    )
+
 
     # close hdf5 file
     hdf5_file.close()
