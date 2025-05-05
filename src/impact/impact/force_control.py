@@ -82,6 +82,7 @@ class ForceControl(Node):
         self.goal_force_subscriber  # prevent unused variable warning
 
         # create timer to control the force of the gripper
+        # TODO: make the control frequency depended on the measurements?
         self.control_frequency = 50
         self.force_control_timer = self.create_timer(1.0 / self.control_frequency, self.force_control)
 
