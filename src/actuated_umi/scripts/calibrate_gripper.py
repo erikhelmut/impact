@@ -24,16 +24,17 @@ class CalibrateGripper(Node):
         super().__init__("calibrate_gripper")
 
         # create subscriber for aruco distance
-        self.subscriber_aruco_dist = Subscriber(self, ArUcoDistStamped, "aruco_distance")
+        self.subscriber_aruco_dist = Subscriber(self, ArUcoDistStamped, "realsense_d405_aruco_distance")
 
         # create subscriber for motor state
         self.subscriber_motor_state = Subscriber(self, JointState, "actuated_umi_motor_state")
 
         # create publisher to set goal position of gripper
-        self.publisher = self.create_publisher(Int16, "set_actuated_umi_motor_position", 10)
+        self.publisher = self.create_publisher(Int16, "set_actuated_umi_motor_position", 1)
 
         # set start position of gripper
-        self.set_goal_position(900)
+        self.set_goal_position(-100)
+        time.sleep(5)
 
         # save msgs for aruco distance and motor position
         self.aruco_dist = []
@@ -95,7 +96,7 @@ def main(folder, args=None):
 
         calibrate_gripper = CalibrateGripper()
 
-        goal_position = 800
+        goal_position = -100
 
         while rclpy.ok():
             rclpy.spin_once(calibrate_gripper, timeout_sec=1.0)
