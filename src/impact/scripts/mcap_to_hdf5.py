@@ -81,17 +81,20 @@ def convert_timestamp_to_float(timestamp):
     return timestamp.sec + timestamp.nanosec * 1e-9
 
 
-def time_filter_list(ref_timestamps, target_timestamps, target_list, delta_t=0.1):
+def time_filter_list(ref_timestamps, target_timestamps, target_list, target_list_name, delta_t=0.1):
     """
     Filter a list based on the closest timestamps in another list.
 
     :param ref_timestamps: reference timestamps
     :param target_timestamps: target timestamps
     :param target_list: target list to filter
+    :param target_list_name: name of the target list
     :return: filtered list
     """
 
     filtered_list = []
+
+    warn = False
     
     for ts in ref_timestamps:
         # find the closest timestamp in target_timestamps
@@ -103,8 +106,54 @@ def time_filter_list(ref_timestamps, target_timestamps, target_list, delta_t=0.1
             filtered_list.append(target_list[index])
         else:
             filtered_list.append(None)
+            warn = True
+    
+    if warn:
+        print(f"Warning: {target_list_name} timestamps are not aligned with gs_mini timestamps. Some values are set to None.")
 
     return filtered_list
+
+
+def fill_none_values(seq):
+    """
+    Fill None values in a list with the first and last non-None values.
+    Interpolate None values in the middle.
+    
+    :param seq: list to fill
+    :return: filled list
+    """
+
+    # replace None values at the start with the first non-None value
+    for i in range(len(seq)):
+        if seq[i] is not None:
+            seq[:i] = [seq[i]] * i
+            break
+
+    # replace None values at the end with the last non-None value
+    for i in range(len(seq) - 1, -1, -1):
+        if seq[i] is not None:
+            seq[i+1:] = [seq[i]] * (len(seq) - i - 1)
+            break
+
+    # interpolate None values in the middle
+    i = 0
+    while i < len(seq):
+        if seq[i] is None:
+            start = i - 1
+            # find the next non-None value
+            j = i
+            while j < len(seq) and seq[j] is None:
+                j += 1
+            if j < len(seq):
+                # interpolate between seq[start] and seq[j]
+                step = (seq[j] - seq[start]) / (j - start)
+                for k in range(1, j - start):
+                    seq[start + k] = seq[start] + step * k
+            i = j
+        else:
+            i += 1
+
+    return seq
 
 
 def main():
@@ -186,19 +235,21 @@ def main():
     gs_mini_timestamps = gs_mini_timestamps[10:-10]
 
     # filter lists based on timestamps of gs_mini
-    feats_fx = time_filter_list(gs_mini_timestamps, feats_fx_timestamps, feats_fx)
-    feats_fdx = time_filter_list(gs_mini_timestamps, feats_fx_timestamps, feats_fdx)
-    feats_fy = time_filter_list(gs_mini_timestamps, feats_fy_timestamps, feats_fy)
-    feats_fdy = time_filter_list(gs_mini_timestamps, feats_fy_timestamps, feats_fdy)
-    feats_fz = time_filter_list(gs_mini_timestamps, feats_fz_timestamps, feats_fz)
-    feats_fdz = time_filter_list(gs_mini_timestamps, feats_fz_timestamps, feats_fdz)
+    feats_fx = time_filter_list(gs_mini_timestamps, feats_fx_timestamps, feats_fx, "feats_fx")
+    feats_fdx = time_filter_list(gs_mini_timestamps, feats_fx_timestamps, feats_fdx, "feats_fdx")
+    feats_fy = time_filter_list(gs_mini_timestamps, feats_fy_timestamps, feats_fy, "feats_fy")
+    feats_fdy = time_filter_list(gs_mini_timestamps, feats_fy_timestamps, feats_fdy, "feats_fdy")
+    feats_fz = time_filter_list(gs_mini_timestamps, feats_fz_timestamps, feats_fz, "feats_fz")
+    feats_fdz = time_filter_list(gs_mini_timestamps, feats_fz_timestamps, feats_fdz, "feats_fz_dist")
     feats_timestamps = copy.deepcopy(gs_mini_timestamps)
 
-    realsense_d405_color_img = time_filter_list(gs_mini_timestamps, realsense_d405_color_img_timestamps, realsense_d405_color_img)
-    realsense_d405_depth_img = time_filter_list(gs_mini_timestamps, realsense_d405_depth_img_timestamps, realsense_d405_depth_img)
-    realsense_d405_aruco_dist = time_filter_list(gs_mini_timestamps, realsense_d405_aruco_dist_timestamps, realsense_d405_aruco_dist)
+    realsense_d405_color_img = time_filter_list(gs_mini_timestamps, realsense_d405_color_img_timestamps, realsense_d405_color_img, "realsense_d405_color_img")
+    realsense_d405_depth_img = time_filter_list(gs_mini_timestamps, realsense_d405_depth_img_timestamps, realsense_d405_depth_img, "realsense_d405_depth_img")
+    realsense_d405_aruco_dist = time_filter_list(gs_mini_timestamps, realsense_d405_aruco_dist_timestamps, realsense_d405_aruco_dist, "realsense_d405_aruco_dist")
     realsense_d405_timestamps = copy.deepcopy(gs_mini_timestamps)
 
+    # fill None values in lists
+    realsense_d405_aruco_dist = fill_none_values(realsense_d405_aruco_dist)
 
     # save datasets
     gs_mini_grp.create_dataset(
