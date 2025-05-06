@@ -19,6 +19,7 @@ class RealSenseD405Node(Node):
         super().__init__("realsense_d405_node")
 
         # initialze camera
+        #self.cam = RealSenseD405(img_shape=(848, 480))
         self.cam = RealSenseD405(img_shape=(640, 480))
 
         # declare parameters for QoS settings
