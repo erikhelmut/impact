@@ -6,6 +6,7 @@ from geometry_msgs.msg import WrenchStamped
 from feats_msgs.msg import ForceDistStamped
 from sensor_msgs.msg import JointState
 from impact_msgs.msg import GoalForceController
+
 from collections import deque
 import copy
 
@@ -33,12 +34,13 @@ class ForceControl(Node):
         super().__init__("force_control")
 
         # define control parameters
-        self.kp = 25  # proportional gain
+        self.kp = 10  # proportional gain
         self.kd = 0  # derivative gain
         self.alpha = 0.8  # low-pass filter parameter
 
         # store current position, force and goal force
         self.current_position = None
+        self.goal_position = None
         self.current_force = 0
         self.force_rate_filtered = 0
         self.goal_force = None
@@ -55,14 +57,14 @@ class ForceControl(Node):
         self.filt = MovingAverage(size=10)
 
         # create publisher to set goal position of gripper
-        self.goal_position_publisher = self.create_publisher(Int16, "set_actuated_umi_motor_position", 10)
+        self.goal_position_publisher = self.create_publisher(Int16, "set_actuated_umi_motor_position", 1)
 
         # create subscriber to get current position of gripper
-        self.current_position_subscriber = self.create_subscription(JointState, "actuated_umi_motor_state", self.get_current_position, 10)
+        self.current_position_subscriber = self.create_subscription(JointState, "actuated_umi_motor_state", self.get_current_position, 1)
 
         # create subscriber to get current force of gripper without callback
         current_force_subscriber_qos_profile = QoSProfile(
-            reliability=QoSReliabilityPolicy.BEST_EFFORT,
+            reliability=QoSReliabilityPolicy.RELIABLE,
             history=QoSHistoryPolicy.KEEP_LAST,
             depth=1
         )
@@ -71,22 +73,18 @@ class ForceControl(Node):
 
         # create publisher for filtered force
         ma_force_publisher_qos_profile = QoSProfile(
-            reliability=QoSReliabilityPolicy.BEST_EFFORT,
+            reliability=QoSReliabilityPolicy.RELIABLE,
             history=QoSHistoryPolicy.KEEP_LAST,
             depth=1
         )
         self.filtered_force_publisher = self.create_publisher(Float32, "feats_ma_fz", ma_force_publisher_qos_profile)
 
         # create subscriber to set goal force of gripper
-        self.goal_force_subscriber = self.create_subscription(GoalForceController, "set_actuated_umi_goal_force", self.set_goal_force, 10)
+        self.goal_force_subscriber = self.create_subscription(GoalForceController, "set_actuated_umi_goal_force", self.set_goal_force, 1)
         self.goal_force_subscriber  # prevent unused variable warning
 
-        # create timer to control the force of the gripper
-        #self.control_frequency = 50
-        #self.force_control_timer = self.create_timer(1.0 / self.control_frequency, self.force_control)
-
         
-    def set_goal_position(self, position_adjustment):
+    def set_goal_position(self, position):
         """
         Set the goal position of the gripper.
 
@@ -95,7 +93,7 @@ class ForceControl(Node):
         """
 
         msg = Int16()
-        msg.data = int(self.current_position + position_adjustment)
+        msg.data = int(position)
         self.goal_position_publisher.publish(msg)
 
 
@@ -108,9 +106,7 @@ class ForceControl(Node):
         """
 
         self.goal_force = msg.goal_force
-        self.kp = msg.kp
-        self.kd = msg.kd
-        self.alpha = msg.alpha
+        self.goal_position = msg.goal_position
 
 
     def get_current_position(self, msg):
@@ -166,21 +162,28 @@ class ForceControl(Node):
         :return: None
         """
 
-        if self.goal_force is not None and self.current_position is not None:
+        if self.goal_force is not None and self.current_position is not None and self.goal_position is not None:
 
-            # calculate force error
-            force_error = self.goal_force - self.current_force
-            print("Force error: ", force_error)
+            if self.goal_force <= -0.5:
+                
+                # calculate force error
+                force_error = self.goal_force - self.current_force
+                print("Force error: ", force_error)
 
-            # compute position adjustment
-            position_adjustment = self.kp * force_error + self.kd * self.force_rate_filtered
+                # compute position adjustment
+                position_adjustment = self.kp * force_error + self.kd * self.force_rate_filtered
 
-            # apply saturation (to avoid excessive movements)
-            rel_position_limit = 50
-            position_adjustment = max(min(position_adjustment, rel_position_limit), -rel_position_limit)
+                # apply saturation (to avoid excessive movements)
+                rel_position_limit = 50
+                position_adjustment = max(min(position_adjustment, rel_position_limit), -rel_position_limit)
 
-            # update goal position
-            self.set_goal_position(position_adjustment)
+                # update goal position
+                self.set_goal_position(self.current_position + position_adjustment)
+
+            else:
+                
+                # update goal position
+                self.set_goal_position(self.goal_position)
 
 
 def main(args=None):
