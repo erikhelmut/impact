@@ -1,5 +1,5 @@
 resense_hex21_node:
   ros__parameters:
-    rs_hex21.qos.reliability: best_effort
+    rs_hex21.qos.reliability: reliable
     rs_hex21.qos.history: keep_last
     rs_hex21.qos.depth: 1

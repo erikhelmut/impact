@@ -1,11 +1,11 @@
 realsense_d405_node:
   ros__parameters:
-    rs_d405.qos.reliability: best_effort
+    rs_d405.qos.reliability: reliable
     rs_d405.qos.history: keep_last
     rs_d405.qos.depth: 1
 
 detect_aruco_node:
   ros__parameters:
-    rs_d405.qos.reliability: best_effort
+    rs_d405.qos.reliability: reliable
     rs_d405.qos.history: keep_last
     rs_d405.qos.depth: 1

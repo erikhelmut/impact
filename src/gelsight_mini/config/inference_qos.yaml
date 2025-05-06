@@ -1,5 +1,5 @@
 gelsight_mini_node:
   ros__parameters:
-    gs_mini.qos.reliability: best_effort
+    gs_mini.qos.reliability: reliable
     gs_mini.qos.history: keep_last
     gs_mini.qos.depth: 1
