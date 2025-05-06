@@ -1,4 +1,0 @@
-<launch>
-    <node pkg="impact" exec="force_trajectory_publisher"/>
-    <node pkg="impact" exec="force_control"/>
-</launch>
