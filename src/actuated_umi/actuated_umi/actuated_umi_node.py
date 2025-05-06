@@ -150,8 +150,8 @@ class ActuatedUMINode(Node):
             self.gripper.torque_enabled = True
 
         # check if the goal position is within the limits
-        if msg.data >= -2380:
-            self.gripper.connector.write_field_async("goal_position", msg.data)
+        #if msg.data >= -2380:
+        self.gripper.connector.write_field_async("goal_position", msg.data)
 
     
     def set_goal_velocity(self, msg):
