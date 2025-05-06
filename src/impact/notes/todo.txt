@@ -5,3 +5,10 @@
 Questions
 - how do i handle cases in data processing where the distance is not available during data collection?
 - check if reliability settings make sense during inference -> seems like messages are getting dropped more than expected...
+- how can we handle aruco light problems
+
+- what example for first test of diffusion policy?
+- how can i evaluate diffusion policy during training?
+    - caputre some test trajectories and check mean difference of goal force?
+
+- change camera resolution to more field of view
