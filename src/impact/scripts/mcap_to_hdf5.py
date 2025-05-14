@@ -230,9 +230,10 @@ def main():
     # close reader object
     del rr
 
-    # remove first and last 10 points from gs_mini_img
-    gs_mini_img = gs_mini_img[10:-10]
-    gs_mini_timestamps = gs_mini_timestamps[10:-10]
+    # remove first and last n points from gs_mini_img
+    n = 100
+    gs_mini_img = gs_mini_img[n:-n]
+    gs_mini_timestamps = gs_mini_timestamps[n:-n]
 
     # filter lists based on timestamps of gs_mini
     feats_fx = time_filter_list(gs_mini_timestamps, feats_fx_timestamps, feats_fx, "feats_fx")
