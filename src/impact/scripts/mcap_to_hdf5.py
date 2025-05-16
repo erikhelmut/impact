@@ -1,3 +1,5 @@
+import os
+
 import argparse
 from rclpy.serialization import deserialize_message
 from rosidl_runtime_py.utilities import get_message
@@ -166,162 +168,179 @@ def main():
     # parse arguments
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--input", help="input bag path (filepath) to read from"
+        "--input", help="input bag path (folder) to read from"
     )
     parser.add_argument(
         "--output", help="output bag path (folder) to write to"
     )
     args = parser.parse_args()
 
-    # create reader object
-    rr = RosbagReader(args.input)
+    # get all mcap files in the input path
+    mcap_files = []
+    if os.path.isdir(args.input):
+        for folder in os.listdir(args.input):
+            if os.path.isdir(os.path.join(args.input, folder)):
+                # get mcap files in the folder
+                file = [f for f in os.listdir(os.path.join(args.input, folder)) if f.endswith(".mcap")]
+                mcap_files += [os.path.join(args.input, folder, f) for f in file]
+    else:
+        # if the input is a file, add it to the list
+        mcap_files.append(args.input)
+    
+    for mcap_file in mcap_files:
 
-    # create hdf5 file
-    hdf5_filename = args.output + args.input.split("/")[-1].split(".")[0] + ".hdf5"
-    hdf5_file = h5py.File(hdf5_filename, "w")
+        # create reader object
+        rr = RosbagReader(mcap_file)
 
-    # create hdf5 groups
-    gs_mini_grp = hdf5_file.create_group("gelsight_mini")
-    gs_mini_img = []
-    gs_mini_timestamps = []
-    gs_mini_shape = None
+        # create hdf5 file
+        hdf5_filename = args.output + mcap_file.split("/")[-1].split(".")[0] + ".hdf5"
+        print(f"Creating hdf5 file: {hdf5_filename}")
+        hdf5_file = h5py.File(hdf5_filename, "w")
 
-    feats_grp = hdf5_file.create_group("feats")
-    feats_fx = []; feats_fy = []; feats_fz = []
-    feats_fdx = []; feats_fdy = []; feats_fdz = []
-    feats_fx_timestamps = []; feats_fy_timestamps = []; feats_fz_timestamps = []
+        # create hdf5 groups
+        gs_mini_grp = hdf5_file.create_group("gelsight_mini")
+        gs_mini_img = []
+        gs_mini_timestamps = []
+        gs_mini_shape = None
 
-    realsense_d405_grp = hdf5_file.create_group("realsense_d405")
-    realsense_d405_color_img = []; realsense_d405_depth_img = []; realsense_d405_aruco_dist = []
-    realsense_d405_color_img_timestamps = []; realsense_d405_depth_img_timestamps = []; realsense_d405_aruco_dist_timestamps = []
-    realsense_d405_color_img_shape = None; realsense_d405_depth_img_shape = None
+        feats_grp = hdf5_file.create_group("feats")
+        feats_fx = []; feats_fy = []; feats_fz = []
+        feats_fdx = []; feats_fdy = []; feats_fdz = []
+        feats_fx_timestamps = []; feats_fy_timestamps = []; feats_fz_timestamps = []
 
-
-    # iterate over messages
-    for topic, msg, _ in rr.read_messages():
-
-        if topic == "/gelsight_mini_image":
-            gs_mini_img.append(msg.data)
-            gs_mini_timestamps.append(convert_timestamp_to_float(msg.header.stamp))
-            if gs_mini_shape is None:
-                gs_mini_shape = (msg.height, msg.width, 3)
-
-        elif topic == "/feats_fx":
-            feats_fx.append(msg.f)
-            feats_fdx.append(msg.fd)
-            feats_fx_timestamps.append(convert_timestamp_to_float(msg.header.stamp))
-
-        elif topic == "/feats_fy":
-            feats_fy.append(msg.f)
-            feats_fdy.append(msg.fd)
-            feats_fy_timestamps.append(convert_timestamp_to_float(msg.header.stamp))
-
-        elif topic == "/feats_fz":
-            feats_fz.append(msg.f)
-            feats_fdz.append(msg.fd)
-            feats_fz_timestamps.append(convert_timestamp_to_float(msg.header.stamp))
-
-        elif topic == "/realsense_d405_color_image":
-            realsense_d405_color_img.append(msg.data)
-            realsense_d405_color_img_timestamps.append(convert_timestamp_to_float(msg.header.stamp))
-            if realsense_d405_color_img_shape is None:
-                realsense_d405_color_img_shape = (msg.height, msg.width, 3)
-
-        elif topic == "/realsense_d405_depth_image":
-            realsense_d405_depth_img.append(msg.data)
-            realsense_d405_depth_img_timestamps.append(convert_timestamp_to_float(msg.header.stamp))
-            if realsense_d405_depth_img_shape is None:
-                realsense_d405_depth_img_shape = (msg.height, msg.width)
-
-        elif topic == "/realsense_d405_aruco_distance":
-            realsense_d405_aruco_dist.append(msg.distance)
-            realsense_d405_aruco_dist_timestamps.append(convert_timestamp_to_float(msg.header.stamp))
+        realsense_d405_grp = hdf5_file.create_group("realsense_d405")
+        realsense_d405_color_img = []; realsense_d405_depth_img = []; realsense_d405_aruco_dist = []
+        realsense_d405_color_img_timestamps = []; realsense_d405_depth_img_timestamps = []; realsense_d405_aruco_dist_timestamps = []
+        realsense_d405_color_img_shape = None; realsense_d405_depth_img_shape = None
 
 
-    # close reader object
-    del rr
+        # iterate over messages
+        for topic, msg, _ in rr.read_messages():
 
-    # remove first and last n points from gs_mini_img
-    n = 100
-    gs_mini_img = gs_mini_img[n:-n]
-    gs_mini_timestamps = gs_mini_timestamps[n:-n]
+            if topic == "/gelsight_mini_image":
+                gs_mini_img.append(msg.data)
+                gs_mini_timestamps.append(convert_timestamp_to_float(msg.header.stamp))
+                if gs_mini_shape is None:
+                    gs_mini_shape = (msg.height, msg.width, 3)
 
-    # filter lists based on timestamps of gs_mini
-    feats_fx = time_filter_list(gs_mini_timestamps, feats_fx_timestamps, feats_fx, "feats_fx")
-    feats_fdx = time_filter_list(gs_mini_timestamps, feats_fx_timestamps, feats_fdx, "feats_fdx")
-    feats_fy = time_filter_list(gs_mini_timestamps, feats_fy_timestamps, feats_fy, "feats_fy")
-    feats_fdy = time_filter_list(gs_mini_timestamps, feats_fy_timestamps, feats_fdy, "feats_fdy")
-    feats_fz = time_filter_list(gs_mini_timestamps, feats_fz_timestamps, feats_fz, "feats_fz")
-    feats_fdz = time_filter_list(gs_mini_timestamps, feats_fz_timestamps, feats_fdz, "feats_fz_dist")
-    feats_timestamps = copy.deepcopy(gs_mini_timestamps)
+            elif topic == "/feats_fx":
+                feats_fx.append(msg.f)
+                feats_fdx.append(msg.fd)
+                feats_fx_timestamps.append(convert_timestamp_to_float(msg.header.stamp))
 
-    realsense_d405_color_img = time_filter_list(gs_mini_timestamps, realsense_d405_color_img_timestamps, realsense_d405_color_img, "realsense_d405_color_img")
-    realsense_d405_depth_img = time_filter_list(gs_mini_timestamps, realsense_d405_depth_img_timestamps, realsense_d405_depth_img, "realsense_d405_depth_img")
-    realsense_d405_aruco_dist = time_filter_list(gs_mini_timestamps, realsense_d405_aruco_dist_timestamps, realsense_d405_aruco_dist, "realsense_d405_aruco_dist")
-    realsense_d405_timestamps = copy.deepcopy(gs_mini_timestamps)
+            elif topic == "/feats_fy":
+                feats_fy.append(msg.f)
+                feats_fdy.append(msg.fd)
+                feats_fy_timestamps.append(convert_timestamp_to_float(msg.header.stamp))
 
-    # fill None values in lists
-    realsense_d405_aruco_dist = fill_none_values(realsense_d405_aruco_dist)
+            elif topic == "/feats_fz":
+                feats_fz.append(msg.f)
+                feats_fdz.append(msg.fd)
+                feats_fz_timestamps.append(convert_timestamp_to_float(msg.header.stamp))
 
-    # save datasets
-    gs_mini_grp.create_dataset(
-        "gs_mini_img",
-        data=np.array([np.array(img, dtype=np.uint8).reshape(gs_mini_shape) for img in gs_mini_img], dtype=np.uint8),
-    )
-    gs_mini_grp.create_dataset(
-        "gs_mini_timestamps",
-        data=np.array(gs_mini_timestamps, dtype=np.float32),
-    )
+            elif topic == "/realsense_d405_color_image":
+                realsense_d405_color_img.append(msg.data)
+                realsense_d405_color_img_timestamps.append(convert_timestamp_to_float(msg.header.stamp))
+                if realsense_d405_color_img_shape is None:
+                    realsense_d405_color_img_shape = (msg.height, msg.width, 3)
 
-    feats_grp.create_dataset(
-        "feats_fx",
-        data=np.array(feats_fx, dtype=np.float32),
-    )
-    feats_grp.create_dataset(
-        "feats_fdx",
-        data=np.array(feats_fdx, dtype=np.float32),
-    )
-    feats_grp.create_dataset(
-        "feats_fy",
-        data=np.array(feats_fy, dtype=np.float32),
-    )
-    feats_grp.create_dataset(
-        "feats_fdy",
-        data=np.array(feats_fdy, dtype=np.float32),
-    )
-    feats_grp.create_dataset(
-        "feats_fz",
-        data=np.array(feats_fz, dtype=np.float32),
-    )
-    feats_grp.create_dataset(
-        "feats_fz_dist",
-        data=np.array(feats_fdz, dtype=np.float32),
-    )
-    feats_grp.create_dataset(
-        "feats_timestamps",
-        data=np.array(feats_timestamps, dtype=np.float32),
-    )
+            elif topic == "/realsense_d405_depth_image":
+                realsense_d405_depth_img.append(msg.data)
+                realsense_d405_depth_img_timestamps.append(convert_timestamp_to_float(msg.header.stamp))
+                if realsense_d405_depth_img_shape is None:
+                    realsense_d405_depth_img_shape = (msg.height, msg.width)
 
-    realsense_d405_grp.create_dataset(
-        "realsense_d405_color_img",
-        data=np.array([np.array(img, dtype=np.uint8).reshape(realsense_d405_color_img_shape) for img in realsense_d405_color_img], dtype=np.uint8),
-    )
-    realsense_d405_grp.create_dataset(
-        "realsense_d405_depth_img",
-        data = np.array([np.frombuffer(img, dtype=np.uint16).reshape(realsense_d405_depth_img_shape) for img in realsense_d405_depth_img], dtype=np.uint16),
-    )
-    realsense_d405_grp.create_dataset(
-        "realsense_d405_aruco_dist",
-        data=np.array(realsense_d405_aruco_dist, dtype=np.float32),
-    )
-    realsense_d405_grp.create_dataset(
-        "realsense_d405_timestamps",
-        data=np.array(realsense_d405_timestamps, dtype=np.float32),
-    )
+            elif topic == "/realsense_d405_aruco_distance":
+                realsense_d405_aruco_dist.append(msg.distance)
+                realsense_d405_aruco_dist_timestamps.append(convert_timestamp_to_float(msg.header.stamp))
 
 
-    # close hdf5 file
-    hdf5_file.close()
+        # close reader object
+        del rr
+
+        # remove first and last n points from gs_mini_img
+        n = 50
+        gs_mini_img = gs_mini_img[n:-n]
+        gs_mini_timestamps = gs_mini_timestamps[n:-n]
+
+        # filter lists based on timestamps of gs_mini
+        feats_fx = time_filter_list(gs_mini_timestamps, feats_fx_timestamps, feats_fx, "feats_fx")
+        feats_fdx = time_filter_list(gs_mini_timestamps, feats_fx_timestamps, feats_fdx, "feats_fdx")
+        feats_fy = time_filter_list(gs_mini_timestamps, feats_fy_timestamps, feats_fy, "feats_fy")
+        feats_fdy = time_filter_list(gs_mini_timestamps, feats_fy_timestamps, feats_fdy, "feats_fdy")
+        feats_fz = time_filter_list(gs_mini_timestamps, feats_fz_timestamps, feats_fz, "feats_fz")
+        feats_fdz = time_filter_list(gs_mini_timestamps, feats_fz_timestamps, feats_fdz, "feats_fz_dist")
+        feats_timestamps = copy.deepcopy(gs_mini_timestamps)
+
+        realsense_d405_color_img = time_filter_list(gs_mini_timestamps, realsense_d405_color_img_timestamps, realsense_d405_color_img, "realsense_d405_color_img")
+        realsense_d405_depth_img = time_filter_list(gs_mini_timestamps, realsense_d405_depth_img_timestamps, realsense_d405_depth_img, "realsense_d405_depth_img")
+        realsense_d405_aruco_dist = time_filter_list(gs_mini_timestamps, realsense_d405_aruco_dist_timestamps, realsense_d405_aruco_dist, "realsense_d405_aruco_dist")
+        realsense_d405_timestamps = copy.deepcopy(gs_mini_timestamps)
+
+        # fill None values in lists
+        realsense_d405_aruco_dist = fill_none_values(realsense_d405_aruco_dist)
+
+        # save datasets
+        gs_mini_grp.create_dataset(
+            "gs_mini_img",
+            data=np.array([np.array(img, dtype=np.uint8).reshape(gs_mini_shape) for img in gs_mini_img], dtype=np.uint8),
+        )
+        gs_mini_grp.create_dataset(
+            "gs_mini_timestamps",
+            data=np.array(gs_mini_timestamps, dtype=np.float32),
+        )
+
+        feats_grp.create_dataset(
+            "feats_fx",
+            data=np.array(feats_fx, dtype=np.float32),
+        )
+        feats_grp.create_dataset(
+            "feats_fdx",
+            data=np.array(feats_fdx, dtype=np.float32),
+        )
+        feats_grp.create_dataset(
+            "feats_fy",
+            data=np.array(feats_fy, dtype=np.float32),
+        )
+        feats_grp.create_dataset(
+            "feats_fdy",
+            data=np.array(feats_fdy, dtype=np.float32),
+        )
+        feats_grp.create_dataset(
+            "feats_fz",
+            data=np.array(feats_fz, dtype=np.float32),
+        )
+        feats_grp.create_dataset(
+            "feats_fz_dist",
+            data=np.array(feats_fdz, dtype=np.float32),
+        )
+        feats_grp.create_dataset(
+            "feats_timestamps",
+            data=np.array(feats_timestamps, dtype=np.float32),
+        )
+
+        realsense_d405_grp.create_dataset(
+            "realsense_d405_color_img",
+            data=np.array([np.array(img, dtype=np.uint8).reshape(realsense_d405_color_img_shape) for img in realsense_d405_color_img], dtype=np.uint8),
+        )
+        realsense_d405_grp.create_dataset(
+            "realsense_d405_depth_img",
+            data = np.array([np.frombuffer(img, dtype=np.uint16).reshape(realsense_d405_depth_img_shape) for img in realsense_d405_depth_img], dtype=np.uint16),
+        )
+        realsense_d405_grp.create_dataset(
+            "realsense_d405_aruco_dist",
+            data=np.array(realsense_d405_aruco_dist, dtype=np.float32),
+        )
+        realsense_d405_grp.create_dataset(
+            "realsense_d405_timestamps",
+            data=np.array(realsense_d405_timestamps, dtype=np.float32),
+        )
+
+
+        # close hdf5 file
+        hdf5_file.close()
+
+        print(f"Finished creating hdf5 file: {hdf5_filename}")
 
 
 if __name__ == "__main__":
