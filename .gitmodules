@@ -1,0 +1,3 @@
+[submodule "src/imitator/lerobot"]
+	path = src/imitator/lerobot
+	url = git@github.com:huggingface/lerobot.git
