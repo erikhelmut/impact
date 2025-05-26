@@ -1,0 +1,13 @@
+imitator_node:
+  ros__parameters:
+    feats.qos.reliability: reliable
+    feats.qos.history: keep_last
+    feats.qos.depth: 1
+
+    rs_d405.qos.reliability: reliable
+    rs_d405.qos.history: keep_last
+    rs_d405.qos.depth: 1
+
+    imitator.qos.reliability: reliable
+    imitator.qos.history: keep_last
+    imitator.qos.depth: 1

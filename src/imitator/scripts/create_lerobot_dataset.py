@@ -92,7 +92,7 @@ def convert_hdf5_to_lerobot_dataset(hdf5_paths, output_dataset_dir, task_name="m
                 feats_fz = feats_fz.reshape(-1, 1) if feats_fz.ndim == 1 else feats_fz
                 aruco_dist = aruco_dist.reshape(-1, 1) if aruco_dist.ndim == 1 else aruco_dist
 
-                # convert raw_img_h5 from rgb to rgb
+                # convert raw_img_h5 from bgr to rgb
                 raw_img_h5 = np.array([cv2.cvtColor(frame, cv2.COLOR_RGB2BGR) for frame in raw_img_h5], dtype=np.uint8)
 
                 # resize images to a smaller size
