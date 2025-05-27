@@ -35,6 +35,7 @@ class IMITATOR:
 
         # provide the hugging face repo id or path to a local outputs/train folder
         pretrained_policy_path = Path("/home/erik/impact/src/imitator/outputs/train/impact_diff_test/checkpoints/last/pretrained_model")
+        #pretrained_policy_path = Path("/home/erik/impact/src/imitator/outputs/train/impact_diff_test_noise/checkpoints/last/pretrained_model")
 
         # initialize the policy
         self.policy = DiffusionPolicy.from_pretrained(pretrained_policy_path)
@@ -236,7 +237,9 @@ class IMITATORNode(Node):
         :param msg: message containing the distance between two ArUco markers
         :return: None
         """
-        self.gripper_width_aruco = msg.distance
+
+        noise = np.abs(np.random.normal(10, 20))
+        self.gripper_width_aruco = msg.distance #- noise
 
 
     def get_current_image(self, msg):
