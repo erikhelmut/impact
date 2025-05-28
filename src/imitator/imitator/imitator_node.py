@@ -34,8 +34,8 @@ class IMITATOR:
             self.device = torch.device("cpu")
 
         # provide the hugging face repo id or path to a local outputs/train folder
-        pretrained_policy_path = Path("/home/erik/impact/src/imitator/outputs/train/impact_diff_test/checkpoints/last/pretrained_model")
-        #pretrained_policy_path = Path("/home/erik/impact/src/imitator/outputs/train/impact_diff_test_noise/checkpoints/last/pretrained_model")
+        #pretrained_policy_path = Path("/home/erik/impact/src/imitator/outputs/train/impact_diff_test/checkpoints/last/pretrained_model")
+        pretrained_policy_path = Path("/home/erik/impact/src/imitator/outputs/train/impact_diff_long_horizon/checkpoints/last/pretrained_model")
 
         # initialize the policy
         self.policy = DiffusionPolicy.from_pretrained(pretrained_policy_path)
@@ -267,9 +267,9 @@ class IMITATORNode(Node):
         :return: None
         """
 
-        if self.feats_fz is not None and self.gripper_width_aruco is not None and self.rs_d405_img is not None:
+        if self.feats_fz is not None and self.gripper_width is not None and self.rs_d405_img is not None:
 
-            goal_force, goal_distance = self.imitator.make_prediction(self.feats_fz, self.gripper_width_aruco, self.rs_d405_img)
+            goal_force, goal_distance = self.imitator.make_prediction(self.feats_fz, self.gripper_width, self.rs_d405_img)
 
             msg = Int16()
             msg.data = int(self.m * goal_distance + self.c)
