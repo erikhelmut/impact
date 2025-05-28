@@ -13,7 +13,7 @@ class Roboter:
         return Robot(ip)
 
     def _configure_robot(self):
-        self.robot.relative_dynamics_factor = 0.1
+        self.robot.relative_dynamics_factor = 0.2
         inertia = np.eye(3) * 1e-4
         inertia = inertia.T.reshape(-1)
         self.robot.set_load(2.0, [0.0, 0.0, 0.1], inertia.tolist())
@@ -23,7 +23,8 @@ class Roboter:
         
         m_jp1 = JointWaypointMotion([
             JointWaypoint([0.122237, 0.183304, -0.0096206, -2.98456, 0.173523, 3.17774, 0.712785]),
-            JointWaypoint([0.143187, 0.383379, -0.0877353, -2.46124, 0.0415854, 2.67903, 0.79327]),
+            #JointWaypoint([0.143187, 0.383379, -0.0877353, -2.46124, 0.0415854, 2.67903, 0.79327]),
+            JointWaypoint([0.0894903, 0.307412, -0.0314429, -2.3087, 0.0530442, 2.20206, 0.838814]),
         ])
 
         m_jp1e = JointStopMotion()
@@ -54,7 +55,7 @@ class Roboter:
         time.sleep(0.2)
         self.robot.move(CartesianStopMotion())
         self.robot.move(m_jp2, asynchronous=True)
-        time.sleep(1.2)
+        time.sleep(0.7)
         self.robot.move(m_jp22)
         input("Press Enter to continue...")
         self.robot.move(m_jp3)
