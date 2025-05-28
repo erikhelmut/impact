@@ -34,7 +34,7 @@ class ForceControl(Node):
         super().__init__("force_control")
 
         # define control parameters
-        self.kp = 10  # proportional gain
+        self.kp = 15  # proportional gain
         self.kd = 0  # derivative gain
         self.alpha = 0.8  # low-pass filter parameter
 
