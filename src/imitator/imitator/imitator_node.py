@@ -9,13 +9,27 @@ from std_msgs.msg import Int16
 from sensor_msgs.msg import Image, JointState
 from feats_msgs.msg import ForceDistStamped
 from aruco_msgs.msg import ArUcoMarkerStamped, ArUcoDistStamped
+from impact_msgs.msg import GoalForceController
 
 import cv2
 import numpy as np
 import torch
 
+from collections import deque
+
 from lerobot.common.policies.diffusion.modeling_diffusion import DiffusionPolicy
 from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
+
+
+class MovingAverage:
+
+    def __init__(self, size):
+        self.window = deque(maxlen=size)
+
+
+    def filter(self, value):
+        self.window.append(value)
+        return sum(self.window) / len(self.window)
 
 
 class IMITATOR:
@@ -103,7 +117,10 @@ class IMITATORNode(Node):
         self.gripper_width = None
         self.gripper_width_aruco = None
         self.rs_d405_img = None
+        self.prev_goal_force = 0
 
+        # moving average filter for force
+        self.filt = MovingAverage(size=10)
     
         # create subscriber to get current force prediction of the FEATS model
         self.declare_parameter("feats.qos.reliability", "reliable")
@@ -149,7 +166,7 @@ class IMITATORNode(Node):
 
         #imitator_publisher_qos_profile = self.get_qos_profile("imitator.qos")
 
-        self.imitator_publisher = self.create_publisher(Int16, "set_actuated_umi_motor_position", 1)
+        self.imitator_publisher = self.create_publisher(GoalForceController, "set_actuated_umi_goal_force", 1)
 
 
         timer_period = 1.0 / 25  # 25 Hz
@@ -271,10 +288,13 @@ class IMITATORNode(Node):
 
             goal_force, goal_distance = self.imitator.make_prediction(self.feats_fz, self.gripper_width, self.rs_d405_img)
 
-            msg = Int16()
-            msg.data = int(self.m * goal_distance + self.c)
-            print(goal_distance)
-            print(goal_force)
+            #goal_force, goal_distance = self.imitator.make_prediction(float(self.prev_goal_force), self.gripper_width, self.rs_d405_img)
+            self.prev_goal_force = goal_force
+
+            msg = GoalForceController()
+            msg.goal_force = float(self.filt.filter(goal_force))
+            #msg.goal_force = float(goal_force)
+            msg.goal_position = int(self.m * goal_distance + self.c)
             self.imitator_publisher.publish(msg)
 
 
