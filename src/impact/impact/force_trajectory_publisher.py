@@ -22,10 +22,10 @@ class ForceTrajectoryPublisher(Node):
         super().__init__("force_trajectory_publisher")
 
         # load calibration parameters for gripper
-        self.m, self.c = np.load("/home/erik/impact/src/actuated_umi/calibration/20250506-133052.npy")
+        self.m, self.c = np.load("/home/erik/impact/src/actuated_umi/calibration/20250526-133247.npy")
 
         # load force trajectory from h5df file
-        self.file = h5py.File("/home/erik/impact/src/impact/hdf5_data/rosbag2_2025_05_06-13_45_01_0.hdf5", "r")
+        self.file = h5py.File("/home/erik/impact/src/impact/hdf5_data/assemble_task/rosbag2_2025_05_16-13_41_32_0.hdf5", "r")
         self.force_trajectory = list(self.file["feats/feats_fz"][:])
         self.position_trajectory = list(self.file["realsense_d405/realsense_d405_aruco_dist"][:])
 

@@ -35,8 +35,9 @@ class ForceControl(Node):
         
         super().__init__("force_control")
 
-        # define PID controller
-        self.pid = PID(12, 1, 2, setpoint=0.0, sample_time=None, starting_output=0.0)
+        # define PID controller 
+        # (12, 1, 2) seems to work well
+        self.pid = PID(10, 1, 2, setpoint=0.0, sample_time=None, starting_output=0.0, output_limits=(-40, 40))
 
 
         # define control parameters
@@ -156,7 +157,7 @@ class ForceControl(Node):
 
         if self.goal_force is not None and self.current_position is not None and self.goal_position is not None:
 
-            if self.goal_force <= -0.5:
+            if self.goal_force <= -0.5 and self.current_force <= -0.5:
                 
                 # calculate force error
                 force_error = self.goal_force - self.current_force

@@ -311,7 +311,7 @@ def main():
             data=np.array(feats_fz, dtype=np.float32),
         )
         feats_grp.create_dataset(
-            "feats_fz_dist",
+            "feats_fdz",
             data=np.array(feats_fdz, dtype=np.float32),
         )
         feats_grp.create_dataset(
