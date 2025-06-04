@@ -16,7 +16,8 @@ class Roboter:
         self.robot.relative_dynamics_factor = 0.2
         inertia = np.eye(3) * 1e-4
         inertia = inertia.T.reshape(-1)
-        self.robot.set_load(2.0, [0.0, 0.0, 0.1], inertia.tolist())
+        #self.robot.set_load(2.0, [0.0, 0.0, 0.1], inertia.tolist())
+        self.robot.set_load(1, [0.065, -0.056, 0.028], inertia.tolist())
 
 
     def follow_trajectory(self):
