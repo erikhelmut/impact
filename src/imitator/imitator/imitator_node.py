@@ -15,6 +15,7 @@ import cv2
 import numpy as np
 import torch
 
+import copy
 from collections import deque
 
 from lerobot.common.policies.diffusion.modeling_diffusion import DiffusionPolicy
@@ -22,6 +23,9 @@ from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
 
 
 class MovingAverage:
+    """
+    A simple moving average filter to smooth out the force readings.
+    """
 
     def __init__(self, size):
         self.window = deque(maxlen=size)
@@ -48,7 +52,6 @@ class IMITATOR:
             self.device = torch.device("cpu")
 
         # provide the hugging face repo id or path to a local outputs/train folder
-        #pretrained_policy_path = Path("/home/erik/impact/src/imitator/outputs/train/impact_diff_test/checkpoints/last/pretrained_model")
         pretrained_policy_path = Path("/home/erik/impact/src/imitator/outputs/train/impact_diff_long_horizon/checkpoints/last/pretrained_model")
 
         # initialize the policy
@@ -154,18 +157,11 @@ class IMITATORNode(Node):
         self.rs_d405_color_subscriber = self.create_subscription(Image, "realsense_d405_color_image", self.get_current_image, rs_d405_qos_profile)
         self.rs_d405_color_subscriber  # prevent unused variable warning
 
-
         self.rs_d405_aruco_subscriber = self.create_subscription(ArUcoDistStamped, "realsense_d405_aruco_distance", self.get_current_width_aruco, rs_d405_qos_profile)
         self.rs_d405_aruco_subscriber  # prevent unused variable warning
 
 
-        # TODO: create publishers for the predicted gripper behavior of the diffusion policy
-        #self.declare_parameter("imitator.qos.reliability", "reliable")
-        #self.declare_parameter("imitator.qos.history", "keep_last")
-        #self.declare_parameter("imitator.qos.depth", 10)
-
-        #imitator_publisher_qos_profile = self.get_qos_profile("imitator.qos")
-
+        # create publisher to set goal force and gripper width of the actuated umi gripper
         self.imitator_publisher = self.create_publisher(GoalForceController, "set_actuated_umi_goal_force", 1)
 
 
@@ -232,7 +228,6 @@ class IMITATORNode(Node):
         :return: None
         """
 
-        # store current force
         self.feats_fz = msg.f
 
 
@@ -255,8 +250,7 @@ class IMITATORNode(Node):
         :return: None
         """
 
-        noise = np.abs(np.random.normal(10, 20))
-        self.gripper_width_aruco = msg.distance #- noise
+        self.gripper_width_aruco = msg.distance
 
 
     def get_current_image(self, msg):
@@ -288,8 +282,7 @@ class IMITATORNode(Node):
 
             goal_force, goal_distance = self.imitator.make_prediction(self.feats_fz, self.gripper_width, self.rs_d405_img)
 
-            #goal_force, goal_distance = self.imitator.make_prediction(float(self.prev_goal_force), self.gripper_width, self.rs_d405_img)
-            self.prev_goal_force = goal_force
+            self.prev_goal_force = copy.copy(goal_force)
 
             msg = GoalForceController()
             msg.goal_force = float(self.filt.filter(goal_force))
@@ -317,7 +310,7 @@ def main(args=None):
         ╚═╝╚═╝     ╚═╝╚═╝   ╚═╝   ╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝   
         """)
 
-        print("\nIMITATOR Node is running... Press <ctrl> <c> to stop. \nPredicted gripper width and goal force are being published on topic /TODO_fz or /TODO_width. \n")
+        print("\nIMITATOR Node is running... Press <ctrl> <c> to stop. \nPredicted gripper width and goal force are being published on topic /set_actuated_umi_goal_force. \n")
 
         rclpy.init(args=args)
 

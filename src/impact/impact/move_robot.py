@@ -16,7 +16,6 @@ class Roboter:
         self.robot.relative_dynamics_factor = 0.2
         inertia = np.eye(3) * 1e-4
         inertia = inertia.T.reshape(-1)
-        #self.robot.set_load(2.0, [0.0, 0.0, 0.1], inertia.tolist())
         self.robot.set_load(1, [0.065, -0.056, 0.028], inertia.tolist())
 
 
@@ -24,7 +23,6 @@ class Roboter:
         
         m_jp1 = JointWaypointMotion([
             JointWaypoint([0.122237, 0.183304, -0.0096206, -2.98456, 0.173523, 3.17774, 0.712785]),
-            #JointWaypoint([0.143187, 0.383379, -0.0877353, -2.46124, 0.0415854, 2.67903, 0.79327]),
             JointWaypoint([0.0894903, 0.307412, -0.0314429, -2.3087, 0.0530442, 2.20206, 0.838814]),
         ])
 
@@ -41,7 +39,7 @@ class Roboter:
         ])
 
         m_jp22 = JointWaypointMotion([
-            JointWaypoint([0.111976, 0.718294, -0.087823, -1.6334, 0.0533854, 2.16891, 0.798216]),
+            JointWaypoint([0.107025, 0.803853, -0.0973414, -1.31097, 0.0442698, 1.71901, 0.791285]),
         ])
 
         m_jp3 = JointWaypointMotion([

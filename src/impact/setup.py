@@ -23,7 +23,6 @@ setup(
     entry_points={
         'console_scripts': [
             'force_control = impact.force_control:main',
-            'force_control_v2 = impact.force_control_v2:main',
             'force_trajectory_publisher = impact.force_trajectory_publisher:main',
         ],
     },

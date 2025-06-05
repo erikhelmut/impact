@@ -2,7 +2,6 @@ import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 from std_msgs.msg import Int16, Float32
-from geometry_msgs.msg import WrenchStamped
 from feats_msgs.msg import ForceDistStamped
 from sensor_msgs.msg import JointState
 from impact_msgs.msg import GoalForceController
@@ -10,8 +9,13 @@ from impact_msgs.msg import GoalForceController
 from collections import deque
 import copy
 
+from simple_pid import PID
+
 
 class MovingAverage:
+    """
+    A simple moving average filter to smooth out the force readings.
+    """
 
     def __init__(self, size):
         self.window = deque(maxlen=size)
@@ -33,25 +37,15 @@ class ForceControl(Node):
         
         super().__init__("force_control")
 
-        # define control parameters
-        self.kp = 15  # proportional gain
-        self.kd = 0  # derivative gain
-        self.alpha = 0.8  # low-pass filter parameter
+        # define PID controller 
+        # (12, 1, 2) seems to work well
+        self.pid = PID(10, 1, 2, setpoint=0.0, sample_time=None, starting_output=0.0, output_limits=(-40, 40))
 
         # store current position, force and goal force
         self.current_position = None
         self.goal_position = None
         self.current_force = 0
-        self.force_rate_filtered = 0
         self.goal_force = None
-
-        # store previous force and force rate
-        self.prev_force = 0
-        self.prev_force_rate_filtered = 0
-
-        # store time of previous and current message
-        self.prev_time = 0
-        self.current_time = 0
 
         # moving average filter for force
         self.filt = MovingAverage(size=10)
@@ -128,24 +122,10 @@ class ForceControl(Node):
         :return: None
         """
 
-        # store previous
-        self.prev_force = copy.copy(self.current_force)
-        self.prev_time = copy.copy(self.current_time)
-
-        # store previous force rate
-        self.prev_force_rate_filtered = copy.copy(self.force_rate_filtered)
-        
         # store current force
+        #self.current_force = msg.f
         self.current_force = self.filt.filter(msg.f)
-        self.current_time = self.get_clock().now()
-        self.current_time = self.current_time.nanoseconds / 1e9  # convert to seconds
-
-        # calculate force rate (raw derivative)
-        force_rate_unfiltered = (self.current_force - self.prev_force) / (self.current_time - self.prev_time)
-
-        # apply low-pass filter to force rate and store it
-        self.force_rate_filtered = self.alpha * self.prev_force_rate_filtered + (1 - self.alpha) * force_rate_unfiltered
-
+        
         # publish filtered force
         filtered_force = Float32()
         filtered_force.data = self.current_force
@@ -164,18 +144,14 @@ class ForceControl(Node):
 
         if self.goal_force is not None and self.current_position is not None and self.goal_position is not None:
 
-            if self.goal_force <= -0.5:
+            if self.goal_force <= -0.5 and self.current_force <= -0.5:
                 
                 # calculate force error
                 force_error = self.goal_force - self.current_force
                 print("Force error: ", force_error)
 
                 # compute position adjustment
-                position_adjustment = self.kp * force_error + self.kd * self.force_rate_filtered
-
-                # apply saturation (to avoid excessive movements)
-                rel_position_limit = 50
-                position_adjustment = max(min(position_adjustment, rel_position_limit), -rel_position_limit)
+                position_adjustment = self.pid(-1 * force_error)
 
                 # update goal position
                 self.set_goal_position(self.current_position + position_adjustment)
