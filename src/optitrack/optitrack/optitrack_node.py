@@ -1,0 +1,1 @@
+# TODO: create simeple publisher that publishes the current position of the gripper
