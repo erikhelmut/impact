@@ -19,6 +19,7 @@ setup(
     license='Apache-2.0',
     entry_points={
         'console_scripts': [
+            'optitrack_node = optitrack.optitrack_node:main',
         ],
     },
 )

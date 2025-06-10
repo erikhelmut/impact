@@ -9,40 +9,25 @@ from natnet_client import DataDescriptions, DataFrame, NatNetClient
 SERVER_IP_ADDRESS = "10.90.90.5"
 LOCAL_IP_ADDRESS = "10.90.90.21"
 
-CYLINDER_NAME = "dreamer_cylinder"
-BASE_NAME = "dreamer_base"
-END_EFFECTOR = "dreamer_ee"
+END_EFFECTOR = "erik_ee"
 
 
 class OptiTrack:
-    # constants
-    BASE_TO_HOLE = np.array([0.0061, -0.035, 0.0274])
-    BASE_TO_RESET = np.array([-0.111, 0.0, -0.034])
 
     def __init__(self):
         self._transformation = None
         try:
-            self._transformation = np.load("calibration.npy")
+            self._transformation = np.load("/home/erik/impact/src/optitrack/scripts/calibration.npy")
             print("Calibration loaded.")
         except:
             print("No saved calibration found!")
 
         # id's
-        self.cylinder_id: int = None
-        self.base_id: int = None
         self.ee_id: int = None
 
         # raw OptiTrack data
-        self._base_pos = np.zeros(3)
-        self._base_ori = np.zeros(4)
-        self._cyl_pos = np.zeros(3)
-        self._cyl_ori = np.zeros(4)
         self._ee_pos = np.zeros(3)
         self._ee_ori = np.zeros(4)
-
-        # calculated positions
-        self._goal_pos = np.zeros(3)
-        self._reset_pos = np.zeros(3)
 
         # init streaming client
         self.streaming_client = NatNetClient(
@@ -69,35 +54,17 @@ class OptiTrack:
         print("OptiTrack closed.")
 
     def receive_new_frame(self, data_frame: DataFrame):
-        if self.cylinder_id is None or self.base_id is None:
-            return
 
         for rb in data_frame.rigid_bodies:
-            if rb.id_num == self.base_id:
-                self._base_pos = np.array(rb.pos)
-                self._base_ori = np.array(rb.rot)
-            elif rb.id_num == self.cylinder_id:
-                self._cyl_pos = np.array(rb.pos)
-                self._cyl_ori = np.array(rb.rot)
-            elif rb.id_num == self.ee_id:
+            if rb.id_num == self.ee_id:
                 self._ee_pos = np.array(rb.pos)
                 self._ee_ori = np.array(rb.rot)
 
-        rot = Rotation.from_quat(self._base_ori)
-        rot = rot.as_matrix()
-        self._goal_pos = self._base_pos + (rot @ self.BASE_TO_HOLE)
-        self._reset_pos = self._base_pos + (rot @ self.BASE_TO_RESET)
         self._last_update_time = time.time()
 
     def receive_new_desc(self, desc: DataDescriptions):
         print("New desc!")
         for rb in desc.rigid_bodies:
-            if rb.name == BASE_NAME:
-                self.base_id = rb.id_num
-                print(f'The base called "{rb.name}" has ID {rb.id_num}')
-            if rb.name == CYLINDER_NAME:
-                self.cylinder_id = rb.id_num
-                print(f'The cylinder called "{rb.name}" has ID {rb.id_num}')
             if rb.name == END_EFFECTOR:
                 self.ee_id = rb.id_num
                 print(f'The end-effector called "{rb.name}" has ID {rb.id_num}')
@@ -141,40 +108,6 @@ class OptiTrack:
         return self._ee_ori
 
     @property
-    def base_pos(self) -> np.ndarray:
-        return self._base_pos
-
-    @property
-    def base_ori(self) -> np.ndarray:
-        return self._base_ori
-
-    @property
-    def cylinder_pos(self) -> np.ndarray:
-        return self._cyl_pos  # + np.array([0, 0, 0.002])
-
-    @property
-    def cylinder_pos_bottom(self) -> np.ndarray:
-        rot = Rotation.from_quat(self.cylinder_ori)
-        return self._cyl_pos - np.array(rot.apply(np.array([0, 0.088, 0])))
-
-    @property
-    def cylinder_pos_gripper(self) -> np.ndarray:
-        rot = Rotation.from_quat(self.cylinder_ori)
-        return self._cyl_pos - np.array(rot.apply(np.array([0, 0.022, 0])))
-
-    @property
-    def cylinder_ori(self) -> np.ndarray:
-        return self._cyl_ori
-
-    @property
-    def reset_pos(self) -> np.ndarray:
-        return self._reset_pos
-
-    @property
-    def goal_pos(self) -> np.ndarray:
-        return self._goal_pos
-
-    @property
     def last_update_time(self) -> float:
         return self._last_update_time
 
@@ -185,11 +118,10 @@ if __name__ == "__main__":
     time.sleep(2)
     try:
         while True:
-            rot = Rotation.from_quat(ot.cylinder_ori)
+            rot = Rotation.from_quat(ot.ee_ori)
             rot = rot.as_euler("zyx", degrees=True)
-            print(f"Cylinder position: {ot.cylinder_pos}")
-            print(f"Cylinder position bottom: {ot.cylinder_pos_bottom}")
-            print(f"Cylinder orientation: {rot}")
+            print(f"End-effector position: {ot.ee_pos}")
+            print(f"End-effector orientation: {rot}")
             print(f"Time delta to last update: {time.time() - ot.last_update_time}\n")
             time.sleep(1)
     except KeyboardInterrupt:
