@@ -11,7 +11,7 @@ from franky import (
     Gripper,
     Robot,
     Affine,
-    LinearMotion,
+    CartesianMotion,
     ReferenceType,
     JointWaypoint,
     JointWaypointMotion,
@@ -24,7 +24,13 @@ import franky
 
 ROBOT_HOST = "10.10.10.10"
 NEUTRAL_POS = [
-    0.122237, 0.183304, -0.0096206, -2.98456, 0.173523, 3.17774, 0.712785
+    -1.49446089e-02,
+    -6.01734484e-02,
+    1.93335545e-03,
+    -2.19032964e00,
+    -2.28822809e-02,
+    2.15411278e00,
+    8.07744573e-01,
 ]
 NEUTRAL_ORI = [9.99941792e-01, -5.83794716e-03, 1.03312910e-04, 9.07305035e-03]
 
@@ -49,16 +55,16 @@ class PandaReal:
         )
         inertia = np.eye(3) * 1e-4
         inertia = inertia.T.reshape(-1)
-        self.robot.set_load(config["load"], [0.0, 0.0, 0.1], inertia.tolist())
+        self.robot.set_load(config["load"], [0.065, -0.056, 0.028], inertia.tolist())
         self.robot.recover_from_errors()
         self.robot.relative_dynamics_factor = 0.05
         self._dflt_limit_forces = config["dflt_limit_forces"]
         self._max_forces = np.array(config["dflt_max_forces"])
 
         # init gripper
-        self.gripper = Gripper(ROBOT_HOST)
-        self._dflt_gripper_speed: float = config["dflt_gripper_speed"]
-        self._dflt_gripper_force: float = config["dflt_gripper_force"]
+        #self.gripper = Gripper(ROBOT_HOST)
+        #self._dflt_gripper_speed: float = config["dflt_gripper_speed"]
+        #self._dflt_gripper_force: float = config["dflt_gripper_force"]
 
     # ==========================#
     # Properties               #
@@ -126,7 +132,7 @@ class PandaReal:
     ):
         goal_pos = np.array(self.end_effector_position)
         goal_pos[axis.value] += dist
-        motion = LinearMotion(Affine(goal_pos, goal_ori), ReferenceType.Absolute)
+        motion = CartesianMotion(Affine(goal_pos, goal_ori), ReferenceType.Absolute)
         if (limit_forces is not None and limit_forces) or (
             limit_forces is None and self._dflt_limit_forces
         ):
@@ -144,7 +150,7 @@ class PandaReal:
     ):
         goal_pos = np.array(self.end_effector_position)
         goal_pos[axis.value] = value
-        motion = LinearMotion(Affine(goal_pos, goal_ori), ReferenceType.Absolute)
+        motion = CartesianMotion(Affine(goal_pos, goal_ori), ReferenceType.Absolute)
         if (limit_forces is not None and limit_forces) or (
             limit_forces is None and self._dflt_limit_forces
         ):
@@ -161,7 +167,7 @@ class PandaReal:
     ):
         goal_pos = np.array(self.end_effector_position)
         goal_pos += direction
-        motion = LinearMotion(Affine(goal_pos, goal_ori), ReferenceType.Absolute)
+        motion = CartesianMotion(Affine(goal_pos, goal_ori), ReferenceType.Absolute)
         if (limit_forces is not None and limit_forces) or (
             limit_forces is None and self._dflt_limit_forces
         ):
@@ -176,7 +182,7 @@ class PandaReal:
         limit_forces: bool = None,
         asynch: bool = False,
     ):
-        motion = LinearMotion(Affine(goal_pos, goal_ori), ReferenceType.Absolute)
+        motion = CartesianMotion(Affine(goal_pos, goal_ori), ReferenceType.Absolute)
         if (limit_forces is not None and limit_forces) or (
             limit_forces is None and self._dflt_limit_forces
         ):
@@ -185,7 +191,7 @@ class PandaReal:
 
     def _add_max_forces(self, motion: Motion):
         # no reaction movement when exeeding the threshholds
-        reaction_motion = LinearMotion(Affine([0.0, 0.0, 0.0]), ReferenceType.Relative)
+        reaction_motion = CartesianMotion(Affine([0.0, 0.0, 0.0]), ReferenceType.Relative)
 
         forces = [Measure.FORCE_X, Measure.FORCE_Y, Measure.FORCE_Z]
         for i in range(3):
