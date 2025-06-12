@@ -55,7 +55,7 @@ class PandaReal:
         )
         inertia = np.eye(3) * 1e-4
         inertia = inertia.T.reshape(-1)
-        self.robot.set_load(config["load"], [0.065, -0.056, 0.028], inertia.tolist())
+        self.robot.set_load(config["load"], config["center_mass"], inertia.tolist())
         self.robot.recover_from_errors()
         self.robot.relative_dynamics_factor = 0.05
         self._dflt_limit_forces = config["dflt_limit_forces"]
