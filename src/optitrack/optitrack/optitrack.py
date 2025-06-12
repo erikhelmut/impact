@@ -17,7 +17,7 @@ class OptiTrack:
     def __init__(self):
         self._transformation = None
         try:
-            self._transformation = np.load("/home/erik/impact/src/optitrack/scripts/calibration.npy")
+            self._transformation = np.load("/home/erik/impact/src/optitrack/calibration/tf_calibration.npy")
             print("Calibration loaded.")
         except:
             print("No saved calibration found!")

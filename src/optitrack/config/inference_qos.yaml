@@ -1,0 +1,5 @@
+optitrack_node:
+  ros__parameters:
+    ot.qos.reliability: reliable
+    ot.qos.history: keep_last
+    ot.qos.depth: 1

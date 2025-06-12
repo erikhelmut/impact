@@ -476,14 +476,58 @@ def calibrate(
     return Transformation.from_pos_quat(trans, quat)
 
 
+def calibrate_ee_offset(result, transformation):
+    """
+    Calculate the offset between the end-effector of the panda and the OptiTrack rigid body.
+
+    :param result: list of two tuples, first tuple -> end-effector state, second tuple -> state of the calibratio object, each tuple has two arrays, first array is the position, second array is the orientation
+    :param transformation: transformation matrix from OptiTrack to panda coordinates
+    
+    :return: tuple of position and quaternion representing the offset from OptiTrack rigid body to panda end-effector in panda coordinates
+    """
+    
+    # extract panda end-effector and OptiTrack rigid body positions and orientations
+    panda_ee_pos, panda_ee_ori = result[0]
+    ot_rb_pos, ot_rb_ori = result[1]
+
+    # extract rotation from transformation matrix
+    R_T = transformation[:3, :3]
+
+    # convert to quaternion
+    q_T = Rotation.from_matrix(R_T).as_quat()
+
+    # rotation matrix from OptiTrack Rigid Body in optitrack coordinates
+    R_OT_RB = Rotation.from_quat(ot_rb_ori)
+    
+    # rotation matrix from OpiTrack Rigid Body in panda coordinates
+    R_T = Rotation.from_quat(q_T)
+    R_OT_PANDA_RB = (R_T * R_OT_RB).as_quat()
+
+    # transform optitrack rigid body position to panda coordinates
+    ot_panda_ee_pos = transformation[:3, :3] @ ot_rb_pos + transformation[:3, 3]
+
+    # calculate the position difference from optitrack rigid body to panda end-effector in panda coordinates
+    DELTA_POS_OT_RB_PANDA_EE = panda_ee_pos - ot_panda_ee_pos
+
+    # calculate the rotation from optitrack rigid body to panda end-effector in panda coordinates
+    R_OT_RB_PANDA_EE = Rotation.from_quat(R_OT_PANDA_RB).inv() * Rotation.from_quat(panda_ee_ori)
+
+    # convert to quaternion
+    q_OT_RB_PANDA_EE = R_OT_RB_PANDA_EE.as_quat()
+
+    return (DELTA_POS_OT_RB_PANDA_EE, q_OT_RB_PANDA_EE) 
+
+
 def main():
     # Load config and initialize panda and OptiTrack
-    with open("config.yaml", "r") as f:
+    with open("/home/erik/impact/src/franka_panda/config/panda_config.yaml", "r") as f:
         config = yaml.safe_load(f)
     panda = PandaReal(config)
     ot = OptiTrack()
     calibrations = 6
     transformation = np.zeros((calibrations, 4, 4))
+    ee_offset = np.zeros((calibrations, 3))
+    ee_rotation = np.zeros((calibrations, 4))
 
     # Do calibration
     # transformation = calibrate_manual(panda, ot)
@@ -494,51 +538,32 @@ def main():
             config["waypoints"],
             config["calibration_velocity"],
         ).matrix
+
+        # calculate the offset between the end-effector of the panda and the OptiTrack rigid body
+        result = readStates(panda, ot)
+        offset, rotation = calibrate_ee_offset(result, transformation[cal, :, :])
+        ee_offset[cal, :] = offset
+        ee_rotation[cal, :] = rotation
+
+    # calculate the mean transformation
     mean = np.mean(transformation, axis=0)
     var = np.var(transformation, axis=0)
     print(f"Mean: {mean}")
     print(f"Variance: {var}")
     ot.transformation = mean
-    np.save("calibration.npy", mean)
+    np.save("../calibration/tf_calibration.npy", mean)
 
-    ##############################################################
-    # Save the transformation from optitrack to panda end-effector
-
-    from scipy.spatial.transform import Rotation as R
-    
-    ee_pos_ot = ot.ee_pos
-    ee_ori_ot = ot.ee_ori
-
-    ee_pos_panda = panda.end_effector_position
-    ee_ori_panda = panda.end_effector_orientation
-
-    # convert optitrack transformation to panda coordinates
-    # extract rotation from transformation matrix
-    R_T = transformation[:3, :3]
-
-    # convert to quaternion
-    q_T = R.from_matrix(R_T).as_quat()
-
-    # Rotation transformieren
-    rot_T = R.from_quat(q_T)
-    rot_ee = R.from_quat(ee_ori_ot)
-    ee_ori_ot_panda = (rot_T * rot_ee).as_quat()
-
-    # transform end-effector position
-    ee_pos_ot_panda = transformation[:3, :3] @ ee_pos_ot + transformation[:3, 3]
-
-    # calculate the transformation from optitrack to panda end-effector
-    
-    translate_ot_panda = ee_pos_panda - ee_pos_ot_panda
-
-    # needed: relative rotation from optitrack to panda end-effector
-    rot_ot_panda = R.from_quat(ee_ori_ot_panda).inv() * R.from_quat(ee_ori_panda)
-    rot_ori_ot_panda = rot_ot_panda.as_quat()
-
-    # OT^R_EE = FB^R_OT^(-1) * FB^R_EE
-
-
-    ##############################################################
+    # calculate the mean offset and rotation
+    mean_offset = np.mean(ee_offset, axis=0)
+    mean_rotation = np.mean(ee_rotation, axis=0)
+    var_offset = np.var(ee_offset, axis=0)
+    var_rotation = np.var(ee_rotation, axis=0)
+    print(f"Mean offset: {mean_offset}")
+    print(f"Variance offset: {var_offset}")
+    print(f"Mean rotation: {mean_rotation}")
+    print(f"Variance rotation: {var_rotation}")
+    np.save("../calibration/ee_offset.npy", mean_offset)
+    np.save("../calibration/ee_rotation.npy", mean_rotation)
 
     ot.close()
 
