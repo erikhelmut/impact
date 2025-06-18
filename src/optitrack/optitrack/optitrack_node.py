@@ -38,14 +38,14 @@ class OptitrackNode(Node):
 
         # create publisher for end-effector position and orientation
         self.optitrack_publisher = self.create_publisher(TransformStamped, "optitrack_ee_state", qos_profile)
-        timer_period = 0.02  # 50 Hz
+        timer_period = 1/120  # 120 Hz
         self.timer = self.create_timer(timer_period, self.get_current_state)
 
         # load and set the optitrack to panda end-effector calibration
         self.load_ee_calibration()
 
         # start the Panda instance to retrieve end-effector position and orientation
-        self.show_panda = True
+        self.show_panda = False
         if self.show_panda:
             self.start_panda_instance()
 
