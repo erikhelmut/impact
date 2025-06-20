@@ -158,6 +158,25 @@ def fill_none_values(seq):
     return seq
 
 
+def find_last_force_index(feats_fz):
+    """
+    Find the index of the last force value in the feats_fz list that is greater than a threshold.
+
+    :param feats_fz: list of force values
+    :return: index of the last force value greater than the threshold, or -1 if not found
+    """
+
+    threshold = -1
+
+    # iterate backwards through the list
+    j = 0
+    for i in range(len(feats_fz)-1, -1, -1):
+        if feats_fz[i] <= threshold:
+            j = copy.copy(i)
+            break
+    return j
+
+
 def main():
     """
     MCAP to HDF5 converter script.
@@ -213,6 +232,10 @@ def main():
         realsense_d405_color_img_timestamps = []; realsense_d405_depth_img_timestamps = []; realsense_d405_aruco_dist_timestamps = []
         realsense_d405_color_img_shape = None; realsense_d405_depth_img_shape = None
 
+        optitrack_grp = hdf5_file.create_group("optitrack")
+        optitrack_trans_x = []; optitrack_trans_y = []; optitrack_trans_z = []; optitrack_rot_x = []; optitrack_rot_y = []; optitrack_rot_z = []; optitrack_rot_w = []
+        optitrack_timestamps = []
+
 
         # iterate over messages
         for topic, msg, _ in rr.read_messages():
@@ -254,14 +277,27 @@ def main():
                 realsense_d405_aruco_dist.append(msg.distance)
                 realsense_d405_aruco_dist_timestamps.append(convert_timestamp_to_float(msg.header.stamp))
 
+            elif topic == "/optitrack_ee_state":
+                if msg.child_frame_id == "panda_ot_ee":
+                    optitrack_trans_x.append(msg.transform.translation.x)
+                    optitrack_trans_y.append(msg.transform.translation.y)
+                    optitrack_trans_z.append(msg.transform.translation.z)
+                    optitrack_rot_x.append(msg.transform.rotation.x)
+                    optitrack_rot_y.append(msg.transform.rotation.y)
+                    optitrack_rot_z.append(msg.transform.rotation.z)
+                    optitrack_rot_w.append(msg.transform.rotation.w)
+                    optitrack_timestamps.append(convert_timestamp_to_float(msg.header.stamp))
 
         # close reader object
         del rr
 
         # remove first and last n points from gs_mini_img
-        n = 50
-        gs_mini_img = gs_mini_img[n:-n]
-        gs_mini_timestamps = gs_mini_timestamps[n:-n]
+        n_first = 50
+        n_last = find_last_force_index(feats_fz) + 75
+        if n_last < 0:
+            n_last = 0
+        gs_mini_img = gs_mini_img[n_first:n_last]
+        gs_mini_timestamps = gs_mini_timestamps[n_first:n_last]
 
         # filter lists based on timestamps of gs_mini
         feats_fx = time_filter_list(gs_mini_timestamps, feats_fx_timestamps, feats_fx, "feats_fx")
@@ -276,6 +312,15 @@ def main():
         realsense_d405_depth_img = time_filter_list(gs_mini_timestamps, realsense_d405_depth_img_timestamps, realsense_d405_depth_img, "realsense_d405_depth_img")
         realsense_d405_aruco_dist = time_filter_list(gs_mini_timestamps, realsense_d405_aruco_dist_timestamps, realsense_d405_aruco_dist, "realsense_d405_aruco_dist")
         realsense_d405_timestamps = copy.deepcopy(gs_mini_timestamps)
+
+        optitrack_trans_x = time_filter_list(gs_mini_timestamps, optitrack_timestamps, optitrack_trans_x, "optitrack_trans_x")
+        optitrack_trans_y = time_filter_list(gs_mini_timestamps, optitrack_timestamps, optitrack_trans_y, "optitrack_trans_y")
+        optitrack_trans_z = time_filter_list(gs_mini_timestamps, optitrack_timestamps, optitrack_trans_z, "optitrack_trans_z")
+        optitrack_rot_x = time_filter_list(gs_mini_timestamps, optitrack_timestamps, optitrack_rot_x, "optitrack_rot_x")
+        optitrack_rot_y = time_filter_list(gs_mini_timestamps, optitrack_timestamps, optitrack_rot_y, "optitrack_rot_y")
+        optitrack_rot_z = time_filter_list(gs_mini_timestamps, optitrack_timestamps, optitrack_rot_z, "optitrack_rot_z")
+        optitrack_rot_w = time_filter_list(gs_mini_timestamps, optitrack_timestamps, optitrack_rot_w, "optitrack_rot_w")
+        optitrack_timestamps = copy.deepcopy(gs_mini_timestamps)
 
         # fill None values in lists
         realsense_d405_aruco_dist = fill_none_values(realsense_d405_aruco_dist)
@@ -334,6 +379,39 @@ def main():
         realsense_d405_grp.create_dataset(
             "realsense_d405_timestamps",
             data=np.array(realsense_d405_timestamps, dtype=np.float32),
+        )
+
+        optitrack_grp.create_dataset(
+            "optitrack_trans_x",
+            data = np.array(optitrack_trans_x, dtype=np.float32),
+        )
+        optitrack_grp.create_dataset(
+            "optitrack_trans_y",
+            data = np.array(optitrack_trans_y, dtype=np.float32),
+        )
+        optitrack_grp.create_dataset(
+            "optitrack_trans_z",
+            data = np.array(optitrack_trans_z, dtype=np.float32),
+        )
+        optitrack_grp.create_dataset(
+            "optitrack_rot_x",
+            data = np.array(optitrack_rot_x, dtype=np.float32),
+        )
+        optitrack_grp.create_dataset(
+            "optitrack_rot_y",
+            data = np.array(optitrack_rot_y, dtype=np.float32),
+        )
+        optitrack_grp.create_dataset(
+            "optitrack_rot_z",
+            data = np.array(optitrack_rot_z, dtype=np.float32),
+        )
+        optitrack_grp.create_dataset(
+            "optitrack_rot_w",
+            data = np.array(optitrack_rot_w, dtype=np.float32),
+        )
+        optitrack_grp.create_dataset(
+            "optitrack_timestamps",
+            data = np.array(optitrack_timestamps, dtype=np.float32),
         )
 
 
