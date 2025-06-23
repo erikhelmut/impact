@@ -131,8 +131,14 @@ def convert_hdf5_to_lerobot_dataset(hdf5_paths, output_dataset_dir, task_name="m
                 # state_t: current state
                 # action_t: action taken at state_t (here, defined as next_state features)
                 # image_t: image at state_t
-                current_state_data = np.concatenate([feats_fz[:num_transitions], aruco_dist[:num_transitions], optitrack_trans_x[:num_transitions], optitrack_trans_y[:num_transitions], optitrack_trans_z[:num_transitions], optitrack_rot_x[:num_transitions], optitrack_rot_y[:num_transitions], optitrack_rot_z[:num_transitions], optitrack_rot_w[:num_transitions]], axis=1)
-                action_data = np.concatenate([feats_fz[1:T], aruco_dist[1:T], optitrack_trans_x[1:T], optitrack_trans_y[1:T], optitrack_trans_z[1:T], optitrack_rot_x[1:T], optitrack_rot_y[1:T], optitrack_rot_z[1:T], optitrack_rot_w[1:T]], axis=1)  # next state as action
+                #current_state_data = np.concatenate([feats_fz[:num_transitions], aruco_dist[:num_transitions], optitrack_trans_x[:num_transitions], optitrack_trans_y[:num_transitions], optitrack_trans_z[:num_transitions], optitrack_rot_x[:num_transitions], optitrack_rot_y[:num_transitions], optitrack_rot_z[:num_transitions], optitrack_rot_w[:num_transitions]], axis=1)
+                #action_data = np.concatenate([feats_fz[1:T], aruco_dist[1:T], optitrack_trans_x[1:T], optitrack_trans_y[1:T], optitrack_trans_z[1:T], optitrack_rot_x[1:T], optitrack_rot_y[1:T], optitrack_rot_z[1:T], optitrack_rot_w[1:T]], axis=1)  # next state as action
+                #image_data_for_episode = resized_images_np[:num_transitions]
+
+                placeholder = np.zeros(feats_fz.shape)
+
+                current_state_data = np.concatenate([feats_fz[:num_transitions], aruco_dist[:num_transitions], placeholder[:num_transitions], placeholder[:num_transitions], placeholder[:num_transitions], placeholder[:num_transitions], placeholder[:num_transitions], placeholder[:num_transitions], placeholder[:num_transitions]], axis=1)
+                action_data = np.concatenate([feats_fz[1:T], aruco_dist[1:T], placeholder[1:T], placeholder[1:T], placeholder[1:T], placeholder[1:T], placeholder[1:T], placeholder[1:T], placeholder[1:T]], axis=1)  # next state as action
                 image_data_for_episode = resized_images_np[:num_transitions]
 
                 print(f"  Episode length (transitions): {num_transitions}")

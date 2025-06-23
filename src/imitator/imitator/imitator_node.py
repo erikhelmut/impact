@@ -17,6 +17,9 @@ import torch
 
 import copy
 from collections import deque
+import yaml
+
+from franka_panda.panda_real import PandaReal
 
 from lerobot.common.policies.diffusion.modeling_diffusion import DiffusionPolicy
 from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
@@ -52,7 +55,7 @@ class IMITATOR:
             self.device = torch.device("cpu")
 
         # provide the hugging face repo id or path to a local outputs/train folder
-        pretrained_policy_path = Path("/home/erik/impact/src/imitator/outputs/train/impact_diff_long_horizon/checkpoints/last/pretrained_model")
+        pretrained_policy_path = Path("/home/erik/impact/src/imitator/outputs/train/impact_planting/checkpoints/last/pretrained_model")
 
         # initialize the policy
         self.policy = DiffusionPolicy.from_pretrained(pretrained_policy_path)
@@ -61,18 +64,25 @@ class IMITATOR:
         self.policy.reset()
 
 
-    def make_prediction(self, feats_fz, gripper_width, rs_d405_img):
+    def make_prediction(self, feats_fz, gripper_width, rs_d405_img, ee_pos, ee_ori):
         """
         Make prediction using the diffusion policy.
 
         :param feats_fz: current total normal force
         :param gripper_width: current gripper width
         :param rs_d405_img: current color image of the D405 RealSense camera
-        :return: goal_force, goal_distance: predicted goal force and distance for the gripper
+        :param ee_pos: current end-effector position
+        :param ee_ori: current end-effector orientation
+        :return: goal_force, goal_distance, goal_ee_pos, goal_ee_ori: predicted goal force, distance for the gripper, end-effector position and orientation
         """
 
         # extract the batch data
-        state = torch.tensor([feats_fz, gripper_width]).unsqueeze(0).float()
+        raw_state = [feats_fz, gripper_width]
+        raw_state.extend(ee_pos.astype(np.float32).tolist())
+        raw_state.extend(ee_ori.astype(np.float32).tolist())
+
+        # convert the state to a tensor and add batch dimension
+        state = torch.tensor(raw_state).unsqueeze(0).float()
         
         image = torch.from_numpy(rs_d405_img).float()
         image = image.permute(0, 3, 1, 2)
@@ -95,7 +105,18 @@ class IMITATOR:
         goal_force = policy_action.squeeze(0)[0].to("cpu").numpy()
         goal_distance = policy_action.squeeze(0)[1].to("cpu").numpy()
 
-        return goal_force, goal_distance
+        goal_x_pos = policy_action.squeeze(0)[2].to("cpu").numpy()
+        goal_y_pos = policy_action.squeeze(0)[3].to("cpu").numpy()
+        goal_z_pos = policy_action.squeeze(0)[4].to("cpu").numpy()
+        goal_ee_pos = np.array([goal_x_pos, goal_y_pos, goal_z_pos])
+
+        goal_x_rot = policy_action.squeeze(0)[5].to("cpu").numpy()
+        goal_y_rot = policy_action.squeeze(0)[6].to("cpu").numpy()
+        goal_z_rot = policy_action.squeeze(0)[7].to("cpu").numpy()
+        goal_w_rot = policy_action.squeeze(0)[8].to("cpu").numpy()
+        goal_ee_ori = np.array([goal_x_rot, goal_y_rot, goal_z_rot, goal_w_rot])
+
+        return goal_force, goal_distance, goal_ee_pos, goal_ee_ori
 
 
 class IMITATORNode(Node):
@@ -112,8 +133,14 @@ class IMITATORNode(Node):
         # initialize diffusion policy
         self.imitator = IMITATOR()
 
+        # initialize the PandaReal instance
+        with open("/home/erik/impact/src/franka_panda/config/panda_config.yaml", "r") as f:
+            config = yaml.safe_load(f)
+        self.panda = PandaReal(config)
+
         # load calibration parameters for gripper
         self.m, self.c = np.load("/home/erik/impact/src/actuated_umi/calibration/20250526-133247.npy")
+        #self.m, self.c = np.load("/home/erik/impact/src/actuated_umi/calibration/20250623-095223.npy")
 
         # store current force and image in class variables
         self.feats_fz = None
@@ -280,12 +307,27 @@ class IMITATORNode(Node):
 
         if self.feats_fz is not None and self.gripper_width is not None and self.rs_d405_img is not None:
 
-            goal_force, goal_distance = self.imitator.make_prediction(self.feats_fz, self.gripper_width, self.rs_d405_img)
+            # get current state of the panda
+            ee_pos = self.panda.end_effector_position
+            ee_ori = self.panda.end_effector_orientation
+
+            #ee_pos = np.zeros(ee_pos.shape)
+            #ee_ori = np.zeros(ee_ori.shape)
+
+            goal_force, goal_distance, goal_ee_pos, goal_ee_ori = self.imitator.make_prediction(self.feats_fz, self.gripper_width, self.rs_d405_img, ee_pos, ee_ori)
 
             self.prev_goal_force = copy.copy(goal_force)
 
+            # move the robot
+            print(ee_pos)
+            print(goal_ee_pos)
+            print(ee_ori)
+            print(goal_ee_ori)
+            self.panda.move_abs(goal_pos=goal_ee_pos, rel_vel=0.01, goal_ori=goal_ee_ori, asynch=True)
+
             msg = GoalForceController()
             msg.goal_force = float(self.filt.filter(goal_force))
+            #msg.goal_force = float(0)
             #msg.goal_force = float(goal_force)
             msg.goal_position = int(self.m * goal_distance + self.c)
             self.imitator_publisher.publish(msg)

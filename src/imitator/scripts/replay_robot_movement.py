@@ -3,9 +3,12 @@ import sys; sys.path.append("/home/erik/impact/src/imitator/lerobot")
 from pathlib import Path
 import argparse
 
-import numpy
+import numpy as np
 import torch
 import matplotlib.pyplot as plt
+
+import yaml
+from franka_panda.panda_real import PandaReal
 
 from lerobot.common.policies.diffusion.modeling_diffusion import DiffusionPolicy
 from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
@@ -159,6 +162,11 @@ def main(pretrained_policy_path, dataset_path, episodes):
     :param episodes: list of episodes to evaluate
     :return: None
     """
+
+    # initialize the PandaReal instance
+    with open("/home/erik/impact/src/franka_panda/config/panda_config.yaml", "r") as f:
+            config = yaml.safe_load(f)
+    panda = PandaReal(config)
     
     # select your device
     if torch.cuda.is_available():
@@ -167,18 +175,18 @@ def main(pretrained_policy_path, dataset_path, episodes):
         device = "cpu"
 
     # provide the hugging face repo id or path to a local outputs/train folder
-    pretrained_policy_path = Path(pretrained_policy_path)
+    #pretrained_policy_path = Path(pretrained_policy_path)
 
     # initialize the policy
-    policy = DiffusionPolicy.from_pretrained(pretrained_policy_path)
+    #policy = DiffusionPolicy.from_pretrained(pretrained_policy_path)
 
     # verify the shapes of the features expected by the policy 
-    print(policy.config.input_features)
+    #print(policy.config.input_features)
     # check the actions produced by the policy
-    print(policy.config.output_features)
+    #print(policy.config.output_features)
 
     # reset the policy to prepare for rollout
-    policy.reset()
+    #policy.reset()
 
     # configure LeRobotDataset for one or multiple episodes
     dataset = LeRobotDataset(
@@ -194,11 +202,36 @@ def main(pretrained_policy_path, dataset_path, episodes):
         shuffle=False,
     )
 
+    i = 0
+    for batch in dataloader:
+
+        i += 1
+        
+        if i > 200:
+
+            # extract the batch data
+            state = batch["observation.state"]
+            image = batch["observation.image"]
+            action = batch["action"]
+
+            goal_ee_pos = np.array(state.squeeze(0)[2:5].to("cpu").numpy())
+            goal_ee_ori = np.array(state.squeeze(0)[5:9].to("cpu").numpy())
+
+            # move the robot arm
+            panda.move_abs(
+                goal_pos=goal_ee_pos,
+                goal_ori=goal_ee_ori,
+                rel_vel=0.01,
+                asynch=False
+            )
+
     # compute the rollout of the policy
-    gt_actions, p_actions = compute_rollout(policy, dataloader, device)
+    #gt_actions, p_actions = compute_rollout(policy, dataloader, device)
     
     # plot the actions
-    plot_actions(gt_actions, p_actions)
+    #plot_actions(gt_actions, p_actions)
+
+
 
 
 if __name__ == "__main__":
