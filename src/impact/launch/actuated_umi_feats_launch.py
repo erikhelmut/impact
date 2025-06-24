@@ -17,6 +17,9 @@ def generate_launch_description():
     realsense_d405_share_dir = get_package_share_directory("realsense_d405")
     realsense_d405_config_file = os.path.join(realsense_d405_share_dir, "config", "inference_qos.yaml")
 
+    optitrack_share_dir = get_package_share_directory("optitrack")
+    optitrack_config_file = os.path.join(optitrack_share_dir, "config", "inference_qos.yaml")
+
     return LaunchDescription([
         Node(
             package="actuated_umi",
@@ -51,6 +54,13 @@ def generate_launch_description():
             executable="detect_aruco_node",
             name="detect_aruco_node",
             parameters=[realsense_d405_config_file],
+            output="screen"
+        ),
+        Node(
+            package="optitrack",
+            executable="optitrack_node",
+            name="optitrack_node",
+            parameters=[optitrack_config_file],
             output="screen"
         ),
     ])
