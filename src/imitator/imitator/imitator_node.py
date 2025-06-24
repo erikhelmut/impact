@@ -7,6 +7,7 @@ from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 
 from std_msgs.msg import Int16
 from sensor_msgs.msg import Image, JointState
+from geometry_msgs.msg import TransformStamped
 from feats_msgs.msg import ForceDistStamped
 from aruco_msgs.msg import ArUcoMarkerStamped, ArUcoDistStamped
 from impact_msgs.msg import GoalForceController
@@ -149,6 +150,10 @@ class IMITATORNode(Node):
         self.rs_d405_img = None
         self.prev_goal_force = 0
 
+        # store current end-effector position and orientation
+        self.ee_pos = None
+        self.ee_ori = None
+
         # moving average filter for force
         self.filt = MovingAverage(size=10)
     
@@ -186,6 +191,17 @@ class IMITATORNode(Node):
 
         self.rs_d405_aruco_subscriber = self.create_subscription(ArUcoDistStamped, "realsense_d405_aruco_distance", self.get_current_width_aruco, rs_d405_qos_profile)
         self.rs_d405_aruco_subscriber  # prevent unused variable warning
+
+
+        # create subscriber to get the current pose of the end-effector from optitrack
+        self.declare_parameter("optitrack.qos.reliability", "reliable")
+        self.declare_parameter("optitrack.qos.history", "keep_last")
+        self.declare_parameter("optitrack.qos.depth", 10)
+
+        optitrack_qos_profile = self.get_qos_profile("optitrack.qos")
+
+        self.optitrack_subscriber = self.create_subscription(TransformStamped, "optitrack_ee_state", self.get_ee_state, optitrack_qos_profile)
+        self.optitrack_subscriber  # prevent unused variable warning
 
 
         # create publisher to set goal force and gripper width of the actuated umi gripper
@@ -298,6 +314,22 @@ class IMITATORNode(Node):
         self.rs_d405_img = np.array([cv2.resize(raw_img, (96, 96), interpolation=cv2.INTER_AREA)], dtype=np.uint8)
 
 
+    def get_ee_state(self, msg):
+        """
+        Get the current end-effector position and orientation from optitrack.
+
+        :param msg: message containing the current end-effector position and orientation
+        :return: None
+        """
+
+        if msg.child_frame_id == "panda_ot_ee":
+            # extract panda end-effector and OptiTrack rigid body positions and orientations
+            self.ee_pos = np.array([msg.transform.translation.x, msg.transform.translation.y, msg.transform.translation.z])
+            self.ee_ori = np.array([msg.transform.rotation.x, msg.transform.rotation.y, msg.transform.rotation.z, msg.transform.rotation.w])
+
+        
+
+
     def pub_prediction(self):
         """
         Publish the predicted gripper behavior of the diffusion policy.
@@ -305,25 +337,25 @@ class IMITATORNode(Node):
         :return: None
         """
 
-        if self.feats_fz is not None and self.gripper_width is not None and self.rs_d405_img is not None:
+        if self.feats_fz is not None and self.gripper_width is not None and self.rs_d405_img is not None and self.ee_pos is not None and self.ee_ori is not None:
 
             # get current state of the panda
-            ee_pos = self.panda.end_effector_position
-            ee_ori = self.panda.end_effector_orientation
+            #self.ee_pos = self.panda.end_effector_position
+            #self.ee_ori = self.panda.end_effector_orientation
 
             #ee_pos = np.zeros(ee_pos.shape)
             #ee_ori = np.zeros(ee_ori.shape)
 
-            goal_force, goal_distance, goal_ee_pos, goal_ee_ori = self.imitator.make_prediction(self.feats_fz, self.gripper_width, self.rs_d405_img, ee_pos, ee_ori)
+            goal_force, goal_distance, goal_ee_pos, goal_ee_ori = self.imitator.make_prediction(self.feats_fz, self.gripper_width, self.rs_d405_img, self.ee_pos, self.ee_ori)
 
             self.prev_goal_force = copy.copy(goal_force)
 
             # move the robot
-            print(ee_pos)
+            print(self.ee_pos)
             print(goal_ee_pos)
-            print(ee_ori)
+            print(self.ee_ori)
             print(goal_ee_ori)
-            self.panda.move_abs(goal_pos=goal_ee_pos, rel_vel=0.01, goal_ori=goal_ee_ori, asynch=True)
+            self.panda.move_abs(goal_pos=goal_ee_pos, rel_vel=0.02, goal_ori=goal_ee_ori, asynch=True)
 
             msg = GoalForceController()
             msg.goal_force = float(self.filt.filter(goal_force))
