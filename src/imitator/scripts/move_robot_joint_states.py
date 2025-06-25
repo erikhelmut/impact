@@ -33,6 +33,8 @@ class ReplayNode(Node):
         
         super().__init__("replay_node")
 
+        self.waypoints = [[0.18559173983038824, 0.16621096462962828, 0.08209514929343502, -2.418032919551159, -0.2206065144965331, 2.3598716132402524, 0.575407437874225], [0.09569335967341286, -0.02051256604929194, 0.01801391964764751, -2.333044864251401, -0.2206247189220781, 2.1289841931375255, 0.5990102715688306], [-0.0383048028764414, -0.01580260732333728, -0.008777657579371404, -2.216367283317764, -0.21953061851559968, 2.0068554288626665, 0.6090536489457773], [-0.08330114575137677, 0.31128547280771496, -0.01022410667099209, -1.7688639197521496, -0.21751258963483555, 1.8401974765099354, 0.6312878700362906], [-0.08074980563689957, 0.5534834040515649, -0.005964880482498639, -1.5741439262434118, -0.20053209248953685, 1.8816444840007027, 0.6360097327109127], [-0.0859569800491615, 0.6358105069707286, -0.0060432219404392045, -1.5843997846817084, -0.17517509916284194, 1.9793274678088044, 0.6638761625327583], [-0.07929580896170293, 0.28902247278145454, 0.00838383686356049, -2.222750008609099, -0.15728362027050566, 2.4933736746049453, 0.842380422441232], [-0.0014802029168152122, -0.11144859864682007, 0.011899863510580963, -3.019737841503461, -0.16080315728820874, 2.8667296120793297, 0.6083556874203757]]
+
         # initialize the PandaReal instance
         with open("/home/erik/impact/src/franka_panda/config/panda_config.yaml", "r") as f:
             config = yaml.safe_load(f)
@@ -42,27 +44,9 @@ class ReplayNode(Node):
         self.m, self.c = np.load("/home/erik/impact/src/actuated_umi/calibration/20250526-133247.npy")
         #self.m, self.c = np.load("/home/erik/impact/src/actuated_umi/calibration/20250623-095223.npy")
 
-        # create publisher to set goal force and gripper width of the actuated umi gripper
-        self.imitator_publisher = self.create_publisher(GoalForceController, "set_actuated_umi_goal_force", 1)
+        self.i = 0
 
-
-        # configure LeRobotDataset for one or multiple episodes
-        self.dataset = LeRobotDataset(
-            repo_id=Path("/home/erik/impact_planting_task_new"),
-            episodes=[1] # 1 seems kinda ok
-        )
-
-        # use standard PyTorch DataLoader to load the dataset
-        self.dataloader = torch.utils.data.DataLoader(
-            self.dataset,
-            num_workers=8,
-            batch_size=1,
-            shuffle=False,
-        )
-
-        self.i = 200
-
-        timer_period = 1.0 / 25  # 25 Hz
+        timer_period = 1.0 / 1  # 25 Hz
         self.timer = self.create_timer(timer_period, self.pub_state)
 
 
@@ -70,32 +54,19 @@ class ReplayNode(Node):
 
         try:
 
-            batch = self.dataset[self.i]
+            joint_state = self.waypoints[self.i]
 
-            # extract the batch data
-            state = batch["observation.state"]
-            image = batch["observation.image"]
-            action = batch["action"]
-
-            goal_ee_pos = np.array(state.squeeze(0)[2:5].to("cpu").numpy())
-            goal_ee_ori = np.array(state.squeeze(0)[5:9].to("cpu").numpy())
-
-            # add 1cm of height to the goal position
-            goal_ee_pos[2] += 0.01
-
-            # move the robot arm
-            self.panda.move_abs(
-                goal_pos=goal_ee_pos,
-                goal_ori=goal_ee_ori,
-                rel_vel=0.07,
-                asynch=True
+            self.panda.move_to_joint_position(
+                joint_positions=joint_state,
+                rel_vel=0.05,
+                asynch=False
             )
 
-            msg = GoalForceController()
+            #msg = GoalForceController()
             #msg.goal_force = float(self.filt.filter(goal_force))
-            msg.goal_force = float(0)
-            msg.goal_position = int(self.m * state[1] + self.c -40)
-            self.imitator_publisher.publish(msg)
+            #msg.goal_force = float(0)
+            #msg.goal_position = int(self.m * state[1] + self.c + 50)
+            #self.imitator_publisher.publish(msg)
 
             self.i += 1
         

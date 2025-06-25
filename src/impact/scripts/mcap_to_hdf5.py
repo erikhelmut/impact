@@ -83,7 +83,7 @@ def convert_timestamp_to_float(timestamp):
     return timestamp.sec + timestamp.nanosec * 1e-9
 
 
-def time_filter_list(ref_timestamps, target_timestamps, target_list, target_list_name, delta_t=0.1):
+def time_filter_list(ref_timestamps, target_timestamps, target_list, target_list_name, delta_t=0.4):
     """
     Filter a list based on the closest timestamps in another list.
 
@@ -91,6 +91,7 @@ def time_filter_list(ref_timestamps, target_timestamps, target_list, target_list
     :param target_timestamps: target timestamps
     :param target_list: target list to filter
     :param target_list_name: name of the target list
+    :param delta_t: maximum allowed difference between timestamps to consider them aligned in seconds
     :return: filtered list
     """
 
