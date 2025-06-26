@@ -328,8 +328,6 @@ class IMITATORNode(Node):
             self.ee_ori = np.array([msg.transform.rotation.x, msg.transform.rotation.y, msg.transform.rotation.z, msg.transform.rotation.w])
 
         
-
-
     def pub_prediction(self):
         """
         Publish the predicted gripper behavior of the diffusion policy.
@@ -343,8 +341,8 @@ class IMITATORNode(Node):
             #self.ee_pos = self.panda.end_effector_position
             #self.ee_ori = self.panda.end_effector_orientation
 
-            #ee_pos = np.zeros(ee_pos.shape)
-            #ee_ori = np.zeros(ee_ori.shape)
+            #self.ee_pos = np.zeros(self.ee_pos.shape)
+            #self.ee_ori = np.zeros(self.ee_ori.shape)
 
             goal_force, goal_distance, goal_ee_pos, goal_ee_ori = self.imitator.make_prediction(self.feats_fz, self.gripper_width, self.rs_d405_img, self.ee_pos, self.ee_ori)
 

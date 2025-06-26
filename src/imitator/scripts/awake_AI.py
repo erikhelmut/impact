@@ -62,6 +62,9 @@ class ReplayNode(Node):
 
         self.i = 200
 
+        # get length of the dataset
+        self.dataset_length = len(self.dataset)
+
         timer_period = 1.0 / 25  # 25 Hz
         self.timer = self.create_timer(timer_period, self.pub_state)
 
@@ -98,11 +101,14 @@ class ReplayNode(Node):
             self.imitator_publisher.publish(msg)
 
             self.i += 1
+
+            if self.i >= self.dataset_length -50:
+                self.i = 100000
         
         except Exception as e:
-            print("Demo done.")
-            # stop the timer
             self.timer.cancel()
+            # stop code
+            exit(0)
     
 
 def main(args=None):
