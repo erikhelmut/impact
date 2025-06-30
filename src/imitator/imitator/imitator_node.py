@@ -353,7 +353,7 @@ class IMITATORNode(Node):
             print(goal_ee_pos)
             print(self.ee_ori)
             print(goal_ee_ori)
-            self.panda.move_abs(goal_pos=goal_ee_pos, rel_vel=0.02, goal_ori=goal_ee_ori, asynch=True)
+            self.panda.move_abs(goal_pos=goal_ee_pos, rel_vel=0.05, goal_ori=goal_ee_ori, asynch=True)
 
             msg = GoalForceController()
             msg.goal_force = float(self.filt.filter(goal_force))
