@@ -50,8 +50,11 @@ class PandaReal:
         self.robot = Robot(
             ROBOT_HOST, default_torque_threshold=500.0, default_force_threshold=500.0
         )
+        #self.robot.set_joint_impedance(
+        #    np.array([3.0, 3.0, 3.0, 2.5, 2.5, 2.0, 2.0]) * 100
+        #)
         self.robot.set_joint_impedance(
-            np.array([3.0, 3.0, 3.0, 2.5, 2.5, 2.0, 2.0]) * 100
+            np.array([3.0, 3.0, 3.0, 2.5, 2.5, 2.0, 2.0]) * 1000
         )
         inertia = np.eye(3) * 1e-4
         inertia = inertia.T.reshape(-1)

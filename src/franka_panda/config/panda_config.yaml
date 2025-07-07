@@ -2,7 +2,7 @@
 load: 1
 center_mass: [0.065, -0.056, 0.028] # in m
 dflt_limit_forces: False
-dflt_max_forces: [10, 10, 10] # absolute in [x, y, z] direction in N
+dflt_max_forces: [1000, 1000, 1000] # absolute in [x, y, z] direction in N
 dflt_gripper_force: 30 # in N
 dflt_gripper_speed: 0.05 # in m/s
 
