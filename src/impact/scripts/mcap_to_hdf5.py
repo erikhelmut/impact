@@ -293,7 +293,7 @@ def main():
         del rr
 
         # remove first and last n points from gs_mini_img
-        n_first = 50
+        n_first = 75
         n_last = find_last_force_index(feats_fz) + 75
         if n_last < 0:
             n_last = 0
@@ -325,6 +325,13 @@ def main():
 
         # fill None values in lists
         realsense_d405_aruco_dist = fill_none_values(realsense_d405_aruco_dist)
+        optitrack_trans_x = fill_none_values(optitrack_trans_x)
+        optitrack_trans_y = fill_none_values(optitrack_trans_y)
+        optitrack_trans_z = fill_none_values(optitrack_trans_z)
+        optitrack_rot_x = fill_none_values(optitrack_rot_x)
+        optitrack_rot_y = fill_none_values(optitrack_rot_y)
+        optitrack_rot_z = fill_none_values(optitrack_rot_z)
+        optitrack_rot_w = fill_none_values(optitrack_rot_w)
 
         # save datasets
         gs_mini_grp.create_dataset(
