@@ -115,6 +115,19 @@ def convert_hdf5_to_lerobot_dataset(hdf5_paths, output_dataset_dir, task_name="m
                     for frame in raw_img_h5
                 ], dtype=np.uint8)
 
+                # subsubsample the data to reduce size
+                subsample = 4
+                feats_fz           = feats_fz[::subsample]
+                aruco_dist         = aruco_dist[::subsample]
+                resized_images_np  = resized_images_np[::subsample]
+                optitrack_trans_x  = optitrack_trans_x[::subsample]
+                optitrack_trans_y  = optitrack_trans_y[::subsample]
+                optitrack_trans_z  = optitrack_trans_z[::subsample]
+                optitrack_rot_x    = optitrack_rot_x[::subsample]
+                optitrack_rot_y    = optitrack_rot_y[::subsample]
+                optitrack_rot_z    = optitrack_rot_z[::subsample]
+                optitrack_rot_w    = optitrack_rot_w[::subsample]
+
                 # determine trajectory length (T-1 transitions)
                 # all source arrays for state/action/image must have at least T frames
                 T = min(feats_fz.shape[0], aruco_dist.shape[0], resized_images_np.shape[0], optitrack_trans_x.shape[0],
