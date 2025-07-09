@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Define variables
-RECORD_DIR="/media/erik/IAS_ERIK/bag_files/planting_task_v3/$(date +%Y-%m-%d_%H-%M-%S)"
+RECORD_DIR="/media/erik/IAS_ERIK/bag_files/planting_task_real_dirt/$(date +%Y-%m-%d_%H-%M-%S)"
 LAUNCH_FILE="impact umi_feats_launch.py"
 
 # Start the ROS 2 launch file

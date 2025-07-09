@@ -8,8 +8,38 @@ import cv2
 from pathlib import Path
 import shutil
 
+from scipy.spatial.transform import Rotation
+
 from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
 from lerobot.common.datasets.utils import DEFAULT_FEATURES
+
+def rotation_to_feature(rot: Rotation) -> np.ndarray:
+    """
+    Extract rotation features according to this paper:
+    https://openaccess.thecvf.com/content_CVPR_2019/html/Zhou_On_the_Continuity_of_Rotation_Representations_in_Neural_Networks_CVPR_2019_paper.html
+    Unlike the paper though, we include the second and third column instead of the first and second, as it helps
+    us to ensure that the sensor only receives downwards pointing target orientations.
+    :param rot: Rotation to compute features representation for.
+    :return: 6D feature representation of the given rotation.
+    """
+    matrix = rot.inv().as_matrix()
+    return matrix.reshape((*matrix.shape[:-2], -1))[..., 3:]
+
+
+def feature_to_rotation(feature: np.ndarray) -> Rotation:
+    z_axis_unnorm = feature[..., 3:]
+    z_norm = np.linalg.norm(z_axis_unnorm, axis=-1, keepdims=True)
+    assert np.all(z_norm > 0)
+    z_axis = z_axis_unnorm / z_norm
+    y_axis_unnorm = (
+        feature[..., :3]
+        - (z_axis * feature[..., :3]).sum(-1, keepdims=True) * z_axis
+    )
+    y_norm = np.linalg.norm(y_axis_unnorm, axis=-1, keepdims=True)
+    assert np.all(y_norm > 0)
+    y_axis = y_axis_unnorm / y_norm
+    x_axis = np.cross(y_axis, z_axis)
+    return Rotation.from_matrix(np.stack([x_axis, y_axis, z_axis], axis=-1))
 
 
 def convert_hdf5_to_lerobot_dataset(hdf5_paths, output_dataset_dir, task_name="mystery_mission", fps=25, use_videos=False):
@@ -35,13 +65,13 @@ def convert_hdf5_to_lerobot_dataset(hdf5_paths, output_dataset_dir, task_name="m
     # you don't need 'task' in the initial `features` dict for `create`
     features = {
         **DEFAULT_FEATURES,  # recommended to include
-        "observation.state": {"shape": (9,), "dtype": "float32", "names": ["feats_fz", "aruco_dist", "optitrack_trans_x", "optitrack_trans_y", "optitrack_trans_z", "optitrack_rot_x", "optitrack_rot_y", "optitrack_rot_z", "optitrack_rot_w"]},
+        "observation.state": {"shape": (11,), "dtype": "float32", "names": ["feats_fz", "aruco_dist", "optitrack_trans_x", "optitrack_trans_y", "optitrack_trans_z", "optitrack_rot_feat_0", "optitrack_rot_f1", "optitrack_rot_f2", "optitrack_rot_f3", "optitrack_rot_f4", "optitrack_rot_f5"]},
         "observation.image": {
             "shape": (96, 96, 3),
             "dtype": "video" if use_videos else "image",
             "names": ["height", "width", "channel"]
         },
-        "action": {"shape": (9,), "dtype": "float32", "names": ["feats_fz", "aruco_dist", "optitrack_trans_x", "optitrack_trans_y", "optitrack_trans_z", "optitrack_rot_x", "optitrack_rot_y", "optitrack_rot_z", "optitrack_rot_w"]},
+        "action": {"shape": (11,), "dtype": "float32", "names": ["feats_fz", "aruco_dist", "optitrack_trans_x", "optitrack_trans_y", "optitrack_trans_z", "optitrack_rot_f0", "optitrack_rot_f1", "optitrack_rot_f2", "optitrack_rot_f3", "optitrack_rot_f4", "optitrack_rot_f5"]},
     }
     
     # if there is no reward/done in the HDF5 files, remove them from DEFAULT_FEATURES
@@ -140,19 +170,40 @@ def convert_hdf5_to_lerobot_dataset(hdf5_paths, output_dataset_dir, task_name="m
 
                 num_transitions = T - 1
 
+                # convert quaternions to rotation features
+                # 1) stack ALL quaternions at once (length T)
+                quats_all = np.concatenate([optitrack_rot_x[:T],
+                                            optitrack_rot_y[:T],
+                                            optitrack_rot_z[:T],
+                                            optitrack_rot_w[:T]], axis=1)
+
+                # 2) convert to Rotation → 6-D features (shape (T,6))
+                rots_all    = Rotation.from_quat(quats_all)
+                rot_fs   = rotation_to_feature(rots_all)
+
                 # prepare data for LeRobotDataset
                 # state_t: current state
                 # action_t: action taken at state_t (here, defined as next_state features)
                 # image_t: image at state_t
-                current_state_data = np.concatenate([feats_fz[:num_transitions], aruco_dist[:num_transitions], optitrack_trans_x[:num_transitions], optitrack_trans_y[:num_transitions], optitrack_trans_z[:num_transitions], optitrack_rot_x[:num_transitions], optitrack_rot_y[:num_transitions], optitrack_rot_z[:num_transitions], optitrack_rot_w[:num_transitions]], axis=1)
-                action_data = np.concatenate([feats_fz[1:T], aruco_dist[1:T], optitrack_trans_x[1:T], optitrack_trans_y[1:T], optitrack_trans_z[1:T], optitrack_rot_x[1:T], optitrack_rot_y[1:T], optitrack_rot_z[1:T], optitrack_rot_w[1:T]], axis=1)  # next state as action
+                current_state_data = np.concatenate([
+                    feats_fz[:num_transitions],
+                    aruco_dist[:num_transitions],
+                    optitrack_trans_x[:num_transitions],
+                    optitrack_trans_y[:num_transitions],
+                    optitrack_trans_z[:num_transitions],
+                    rot_fs[:num_transitions]
+                ], axis=1)
+
+                action_data = np.concatenate([
+                    feats_fz[1:T],
+                    aruco_dist[1:T],
+                    optitrack_trans_x[1:T],
+                    optitrack_trans_y[1:T],
+                    optitrack_trans_z[1:T],
+                    rot_fs[1:T]
+                ], axis=1) # next state as action
+
                 image_data_for_episode = resized_images_np[:num_transitions]
-
-                #placeholder = np.zeros(feats_fz.shape)
-
-                #current_state_data = np.concatenate([feats_fz[:num_transitions], aruco_dist[:num_transitions], placeholder[:num_transitions], placeholder[:num_transitions], placeholder[:num_transitions], placeholder[:num_transitions], placeholder[:num_transitions], placeholder[:num_transitions], placeholder[:num_transitions]], axis=1)
-                #action_data = np.concatenate([feats_fz[1:T], aruco_dist[1:T], placeholder[1:T], placeholder[1:T], placeholder[1:T], placeholder[1:T], placeholder[1:T], placeholder[1:T], placeholder[1:T]], axis=1)  # next state as action
-                #image_data_for_episode = resized_images_np[:num_transitions]
 
                 print(f"  Episode length (transitions): {num_transitions}")
 
