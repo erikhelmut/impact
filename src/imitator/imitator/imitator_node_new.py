@@ -87,8 +87,7 @@ class IMITATOR:
             self.device = torch.device("cpu")
 
         # provide the hugging face repo id or path to a local outputs/train folder
-        #pretrained_policy_path = Path("/home/erik/impact/src/imitator/outputs/train/impact_planting_v2/checkpoints/last/pretrained_model")
-        pretrained_policy_path = Path("/home/erik/impact/src/imitator/outputs/train/impact_planting_v2_sub4/checkpoints/last/pretrained_model")
+        pretrained_policy_path = Path("/home/erik/impact/src/imitator/outputs/train/impact_planting_real_dirt_v2/checkpoints/last/pretrained_model")
 
         # initialize the policy
         self.policy = DiffusionPolicy.from_pretrained(pretrained_policy_path)
@@ -112,6 +111,10 @@ class IMITATOR:
         # extract the batch data
         raw_state = [feats_fz, gripper_width]
         raw_state.extend(ee_pos.astype(np.float32).tolist())
+
+        # convert the end-effector orientation to a 6D feature representation
+        ee_ori = Rotation.from_quat(ee_ori)
+        ee_ori = rotation_to_feature(ee_ori)
         raw_state.extend(ee_ori.astype(np.float32).tolist())
 
         # convert the state to a tensor and add batch dimension
@@ -143,11 +146,17 @@ class IMITATOR:
         goal_z_pos = policy_action.squeeze(0)[4].to("cpu").numpy()
         goal_ee_pos = np.array([goal_x_pos, goal_y_pos, goal_z_pos])
 
-        goal_x_rot = policy_action.squeeze(0)[5].to("cpu").numpy()
-        goal_y_rot = policy_action.squeeze(0)[6].to("cpu").numpy()
-        goal_z_rot = policy_action.squeeze(0)[7].to("cpu").numpy()
-        goal_w_rot = policy_action.squeeze(0)[8].to("cpu").numpy()
-        goal_ee_ori = np.array([goal_x_rot, goal_y_rot, goal_z_rot, goal_w_rot])
+        goal_f0_rot = policy_action.squeeze(0)[5].to("cpu").numpy()
+        goal_f1_rot = policy_action.squeeze(0)[6].to("cpu").numpy()
+        goal_f2_rot = policy_action.squeeze(0)[7].to("cpu").numpy()
+        goal_f3_rot = policy_action.squeeze(0)[8].to("cpu").numpy()
+        goal_f4_rot = policy_action.squeeze(0)[9].to("cpu").numpy()
+        goal_f5_rot = policy_action.squeeze(0)[10].to("cpu").numpy()
+        goal_ee_ori = np.array([goal_f0_rot, goal_f1_rot, goal_f2_rot, goal_f3_rot, goal_f4_rot, goal_f5_rot])
+
+        # convert the goal end-effector orientation to a quaternion
+        goal_ee_ori = feature_to_rotation(goal_ee_ori)
+        goal_ee_ori = goal_ee_ori.as_quat()
 
         return goal_force, goal_distance, goal_ee_pos, goal_ee_ori
 
@@ -389,8 +398,8 @@ class IMITATORNode(Node):
             self.panda.move_abs(goal_pos=goal_ee_pos, rel_vel=0.02, goal_ori=goal_ee_ori, asynch=True) # 0.02
 
             msg = GoalForceController()
-            #msg.goal_force = float(self.filt.filter(goal_force))
-            msg.goal_force = float(0)
+            msg.goal_force = float(self.filt.filter(goal_force))
+            #msg.goal_force = float(0)
             #msg.goal_force = float(goal_force)
             msg.goal_position = int(self.m * goal_distance + self.c)
             self.imitator_publisher.publish(msg)

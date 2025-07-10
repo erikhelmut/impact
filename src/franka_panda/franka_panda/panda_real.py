@@ -54,7 +54,7 @@ class PandaReal:
         #    np.array([3.0, 3.0, 3.0, 2.5, 2.5, 2.0, 2.0]) * 100
         #)
         self.robot.set_joint_impedance(
-            np.array([3.0, 3.0, 3.0, 2.5, 2.5, 2.0, 2.0]) * 1000
+            np.array([3.0, 3.0, 3.0, 2.5, 2.5, 2.0, 2.0]) * 500
         )
         inertia = np.eye(3) * 1e-4
         inertia = inertia.T.reshape(-1)

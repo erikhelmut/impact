@@ -294,7 +294,7 @@ def main():
 
         # remove first and last n points from gs_mini_img
         n_first = 75
-        n_last = find_last_force_index(feats_fz) + 25
+        n_last = find_last_force_index(feats_fz) + 75
         if n_last < 0:
             n_last = 0
         gs_mini_img = gs_mini_img[n_first:n_last]

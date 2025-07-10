@@ -39,7 +39,7 @@ class ForceControl(Node):
 
         # define PID controller 
         # (12, 1, 2) seems to work well
-        self.pid = PID(10, 1, 2, setpoint=0.0, sample_time=None, starting_output=0.0, output_limits=(-40, 40))
+        self.pid = PID(10, 1, 2, setpoint=0.0, sample_time=None, starting_output=0.0, output_limits=(-80, 80))
 
         # store current position, force and goal force
         self.current_position = None
