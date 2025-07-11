@@ -196,6 +196,8 @@ class IMITATORNode(Node):
 
         # initialize variables for initial movement
         self.initial_movement_done = False
+        self.delta_h = 0.005
+        self.total_h = 0.0
 
         # moving average filter for force
         self.filt = MovingAverage(size=10)
@@ -392,15 +394,17 @@ class IMITATORNode(Node):
             if self.initial_movement_done is False:
                 # check if force is below -2N at least
                 if self.feats_fz < -2.0 and goal_force < -2.0:
-                    self.panda.move_abs(goal_pos=self.ee_pos + np.array([0.0, 0.0, 0.05]), rel_vel=0.01, goal_ori=self.ee_ori, asynch=False)
-                    self.initial_movement_done = True
+                    self.total_h += self.delta_h
+                    self.panda.move_abs(goal_pos=self.ee_pos + np.array([0.0, 0.0, self.delta_h]), rel_vel=0.01, goal_ori=self.ee_ori, asynch=True)
+                    if self.total_h >= 0.05:
+                        self.initial_movement_done = True
             else:
                 self.panda.move_abs(goal_pos=goal_ee_pos, rel_vel=0.02, goal_ori=goal_ee_ori, asynch=True) # 0.02
 
             msg = GoalForceController()
-            #msg.goal_force = float(0)
+            msg.goal_force = float(0)
             #msg.goal_force = float(goal_force)
-            msg.goal_force = float(self.filt.filter(goal_force))
+            #msg.goal_force = float(self.filt.filter(goal_force))
             msg.goal_position = int(self.m * goal_distance + self.c)
             self.imitator_publisher.publish(msg)
 
