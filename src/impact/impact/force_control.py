@@ -99,6 +99,7 @@ class ForceControl(Node):
         :return: None
         """
 
+        #self.goal_force = 0.0
         self.goal_force = msg.goal_force
         self.goal_position = msg.goal_position
 

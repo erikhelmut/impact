@@ -189,11 +189,13 @@ class IMITATORNode(Node):
         self.gripper_width = None
         self.gripper_width_aruco = None
         self.rs_d405_img = None
-        self.prev_goal_force = 0
 
         # store current end-effector position and orientation
         self.ee_pos = None
         self.ee_ori = None
+
+        # initialize variables for initial movement
+        self.initial_movement_done = False
 
         # moving average filter for force
         self.filt = MovingAverage(size=10)
@@ -381,26 +383,24 @@ class IMITATORNode(Node):
 
             # get current state of the panda
             self.ee_pos = self.panda.end_effector_position
-            self.ee_ori = self.panda.end_effector_orientation * -1
+            self.ee_ori = self.panda.end_effector_orientation
 
-            #self.ee_pos = np.zeros(self.ee_pos.shape)
-            #self.ee_ori = np.zeros(self.ee_ori.shape)
-
+            # make prediction using the diffusion policy
             goal_force, goal_distance, goal_ee_pos, goal_ee_ori = self.imitator.make_prediction(self.feats_fz, self.gripper_width, self.rs_d405_img, self.ee_pos, self.ee_ori)
 
-            self.prev_goal_force = copy.copy(goal_force)
-
             # move the robot
-            print(self.ee_pos)
-            print(goal_ee_pos)
-            print(self.ee_ori)
-            print(goal_ee_ori)
-            self.panda.move_abs(goal_pos=goal_ee_pos, rel_vel=0.02, goal_ori=goal_ee_ori, asynch=True) # 0.02
+            if self.initial_movement_done is False:
+                # check if force is below -2N at least
+                if self.feats_fz < -2.0 and goal_force < -2.0:
+                    self.panda.move_abs(goal_pos=self.ee_pos + np.array([0.0, 0.0, 0.05]), rel_vel=0.01, goal_ori=self.ee_ori, asynch=False)
+                    self.initial_movement_done = True
+            else:
+                self.panda.move_abs(goal_pos=goal_ee_pos, rel_vel=0.02, goal_ori=goal_ee_ori, asynch=True) # 0.02
 
             msg = GoalForceController()
-            msg.goal_force = float(self.filt.filter(goal_force))
             #msg.goal_force = float(0)
             #msg.goal_force = float(goal_force)
+            msg.goal_force = float(self.filt.filter(goal_force))
             msg.goal_position = int(self.m * goal_distance + self.c)
             self.imitator_publisher.publish(msg)
 
