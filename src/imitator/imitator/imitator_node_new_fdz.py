@@ -87,7 +87,7 @@ class IMITATOR:
             self.device = torch.device("cpu")
 
         # provide the hugging face repo id or path to a local outputs/train folder
-        pretrained_policy_path = Path("/home/erik/impact/src/imitator/outputs/train/impact_planting_real_dirt_v2/checkpoints/last/pretrained_model")
+        pretrained_policy_path = Path("/home/erik/impact/src/imitator/outputs/train/impact_planting_real_dirt_fdz/checkpoints/last/pretrained_model")
 
         # initialize the policy
         self.policy = DiffusionPolicy.from_pretrained(pretrained_policy_path)
@@ -96,11 +96,12 @@ class IMITATOR:
         self.policy.reset()
 
 
-    def make_prediction(self, feats_fz, gripper_width, rs_d405_img, ee_pos, ee_ori):
+    def make_prediction(self, feats_fz, feats_fdz, gripper_width, rs_d405_img, ee_pos, ee_ori):
         """
         Make prediction using the diffusion policy.
 
         :param feats_fz: current total normal force
+        :param feats_fdz: current normal force distribution
         :param gripper_width: current gripper width
         :param rs_d405_img: current color image of the D405 RealSense camera
         :param ee_pos: current end-effector position
@@ -123,14 +124,19 @@ class IMITATOR:
         image = torch.from_numpy(rs_d405_img).float()
         image = image.permute(0, 3, 1, 2)
 
+        feats_fdz = torch.from_numpy(feats_fdz).float()
+        feats_fdz = feats_fdz.permute(0, 3, 1, 2)
+
         # send data tensors from CPU to GPU
         state = state.to(self.device, non_blocking=True)
         image = image.to(self.device, non_blocking=True)
+        feats_fdz = feats_fdz.to(self.device, non_blocking=True)
 
         # create the policy input dictionary
         observation = {
             "observation.state": state,
-            "observation.image": image,
+            "observation.image.realsense": image,
+            "observation.image.feats_fdz": feats_fdz,
         }
 
         # predict the next action with respect to the current observation
@@ -181,12 +187,12 @@ class IMITATORNode(Node):
         self.panda = PandaReal(config)
 
         # load calibration parameters for gripper
-        #self.m, self.c = np.load("/home/erik/impact/src/actuated_umi/calibration/20250526-133247.npy")
+        self.m, self.c = np.load("/home/erik/impact/src/actuated_umi/calibration/20250526-133247.npy")
         #self.m, self.c = np.load("/home/erik/impact/src/actuated_umi/calibration/20250623-095223.npy")
-        self.m, self.c = np.load("/home/erik/impact/src/actuated_umi/calibration/20250714-134732.npy")
 
         # store current force and image in class variables
         self.feats_fz = None
+        self.feats_fdz = None
         self.gripper_width = None
         self.gripper_width_aruco = None
         self.rs_d405_img = None
@@ -319,6 +325,20 @@ class IMITATORNode(Node):
 
         self.feats_fz = msg.f
 
+        feats_fdz = np.frombuffer(msg.fd, dtype=np.float32).reshape(24, 32)
+
+        clim_z = (-0.2, 0.0)
+        feats_fdz_scaled = (feats_fdz - clim_z[0]) * (255 / (clim_z[1] - clim_z[0]))
+        feats_fdz_scaled = np.clip(feats_fdz_scaled, 0, 255).astype(np.uint8)
+
+        resized_feats_fdz = np.array([
+            cv2.resize(feats_fdz_scaled, (96, 96), interpolation=cv2.INTER_AREA)
+        ], dtype=np.uint8)
+
+        resized_feats_fdz = np.stack([resized_feats_fdz] * 3, axis=-1)
+
+        self.feats_fdz = resized_feats_fdz
+
 
     def get_current_width(self, msg):
         """
@@ -389,12 +409,12 @@ class IMITATORNode(Node):
             self.ee_ori = self.panda.end_effector_orientation
 
             # make prediction using the diffusion policy
-            goal_force, goal_distance, goal_ee_pos, goal_ee_ori = self.imitator.make_prediction(self.feats_fz, self.gripper_width, self.rs_d405_img, self.ee_pos, self.ee_ori)
+            goal_force, goal_distance, goal_ee_pos, goal_ee_ori = self.imitator.make_prediction(self.feats_fz, self.feats_fdz, self.gripper_width, self.rs_d405_img, self.ee_pos, self.ee_ori)
 
             # move the robot
             if self.initial_movement_done is False:
-                # check if force is below -1 at least
-                if self.feats_fz < -0.5 and goal_force < -0.5:
+                # check if force is below -2N at least
+                if self.feats_fz < -2.0 and goal_force < -2.0:
                     self.total_h += self.delta_h
                     self.panda.move_abs(goal_pos=self.ee_pos + np.array([0.0, 0.0, self.delta_h]), rel_vel=0.01, goal_ori=self.ee_ori, asynch=True)
                     if self.total_h >= 0.05:
