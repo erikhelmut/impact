@@ -403,7 +403,6 @@ class IMITATORNode(Node):
                 self.panda.move_abs(goal_pos=goal_ee_pos, rel_vel=0.02, goal_ori=goal_ee_ori, asynch=True) # 0.02
 
             msg = GoalForceController()
-            #msg.goal_force = float(0)
             #msg.goal_force = float(goal_force)
             msg.goal_force = float(self.filt.filter(goal_force))
             msg.goal_position = int(self.m * goal_distance + self.c)

@@ -23,6 +23,8 @@ setup(
     entry_points={
         'console_scripts': [
             'force_control = impact.force_control:main',
+            'gripper_control = impact.gripper_control:main',
+            'binary_control = impact.binary_control:main',
             'force_trajectory_publisher = impact.force_trajectory_publisher:main',
         ],
     },

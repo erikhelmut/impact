@@ -189,7 +189,10 @@ class ActuatedUMINode(Node):
 
         # check if the pwm is between -885 and 885
         if msg.data >= -885 and msg.data <= 885:
+            self.gripper.torque_enabled = True
             self.gripper.connector.write_field_async("goal_pwm", msg.data)
+        elif msg.data == 7777:
+            self.gripper.torque_enabled = False
 
 
     def get_current_state(self):
