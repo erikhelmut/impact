@@ -16,6 +16,7 @@ import cv2
 import numpy as np
 import torch
 
+import time
 import copy
 from collections import deque
 import yaml
@@ -87,8 +88,7 @@ class IMITATOR:
             self.device = torch.device("cpu")
 
         # provide the hugging face repo id or path to a local outputs/train folder
-        #pretrained_policy_path = Path("/home/erik/impact/src/imitator/outputs/train/impact_planting_v2/checkpoints/last/pretrained_model")
-        pretrained_policy_path = Path("/home/erik/impact/src/imitator/outputs/train/impact_planting_v2_sub4/checkpoints/last/pretrained_model")
+        pretrained_policy_path = Path("/home/erik/impact/src/imitator/outputs/train/impact_planting_real_dirt_v2/checkpoints/last/pretrained_model")
 
         # initialize the policy
         self.policy = DiffusionPolicy.from_pretrained(pretrained_policy_path)
@@ -112,6 +112,10 @@ class IMITATOR:
         # extract the batch data
         raw_state = [feats_fz, gripper_width]
         raw_state.extend(ee_pos.astype(np.float32).tolist())
+
+        # convert the end-effector orientation to a 6D feature representation
+        ee_ori = Rotation.from_quat(ee_ori)
+        ee_ori = rotation_to_feature(ee_ori)
         raw_state.extend(ee_ori.astype(np.float32).tolist())
 
         # convert the state to a tensor and add batch dimension
@@ -143,11 +147,17 @@ class IMITATOR:
         goal_z_pos = policy_action.squeeze(0)[4].to("cpu").numpy()
         goal_ee_pos = np.array([goal_x_pos, goal_y_pos, goal_z_pos])
 
-        goal_x_rot = policy_action.squeeze(0)[5].to("cpu").numpy()
-        goal_y_rot = policy_action.squeeze(0)[6].to("cpu").numpy()
-        goal_z_rot = policy_action.squeeze(0)[7].to("cpu").numpy()
-        goal_w_rot = policy_action.squeeze(0)[8].to("cpu").numpy()
-        goal_ee_ori = np.array([goal_x_rot, goal_y_rot, goal_z_rot, goal_w_rot])
+        goal_f0_rot = policy_action.squeeze(0)[5].to("cpu").numpy()
+        goal_f1_rot = policy_action.squeeze(0)[6].to("cpu").numpy()
+        goal_f2_rot = policy_action.squeeze(0)[7].to("cpu").numpy()
+        goal_f3_rot = policy_action.squeeze(0)[8].to("cpu").numpy()
+        goal_f4_rot = policy_action.squeeze(0)[9].to("cpu").numpy()
+        goal_f5_rot = policy_action.squeeze(0)[10].to("cpu").numpy()
+        goal_ee_ori = np.array([goal_f0_rot, goal_f1_rot, goal_f2_rot, goal_f3_rot, goal_f4_rot, goal_f5_rot])
+
+        # convert the goal end-effector orientation to a quaternion
+        goal_ee_ori = feature_to_rotation(goal_ee_ori)
+        goal_ee_ori = goal_ee_ori.as_quat()
 
         return goal_force, goal_distance, goal_ee_pos, goal_ee_ori
 
@@ -172,22 +182,32 @@ class IMITATORNode(Node):
         self.panda = PandaReal(config)
 
         # load calibration parameters for gripper
-        self.m, self.c = np.load("/home/erik/impact/src/actuated_umi/calibration/20250526-133247.npy")
-        #self.m, self.c = np.load("/home/erik/impact/src/actuated_umi/calibration/20250623-095223.npy")
+        self.m, self.c = np.load("/home/erik/impact/src/actuated_umi/calibration/20250714-134732.npy")
 
         # store current force and image in class variables
         self.feats_fz = None
         self.gripper_width = None
         self.gripper_width_aruco = None
         self.rs_d405_img = None
-        self.prev_goal_force = 0
 
         # store current end-effector position and orientation
         self.ee_pos = None
         self.ee_ori = None
 
+        # initialize variables for initial movement
+        self.initial_movement_done = False
+        self.delta_h = 0.005
+        self.total_h = 0.0
+
         # moving average filter for force
         self.filt = MovingAverage(size=10)
+
+        # store current and goal forces in list for saving rollout data
+        self.store = True
+        if self.store:
+            self.rollout_current_force = []
+            self.rollout_goal_force = []
+            self.rollout_goal_force_filtered = []
     
         # create subscriber to get current force prediction of the FEATS model
         self.declare_parameter("feats.qos.reliability", "reliable")
@@ -240,7 +260,7 @@ class IMITATORNode(Node):
         self.imitator_publisher = self.create_publisher(GoalForceController, "set_actuated_umi_goal_force", 1)
 
 
-        timer_period = 1.0 / 10  # 20 or 25 Hz
+        timer_period = 1.0 / 7#10  # 20 or 25 Hz
         self.timer = self.create_timer(timer_period, self.pub_prediction)
 
     
@@ -356,9 +376,8 @@ class IMITATORNode(Node):
 
         if msg.child_frame_id == "panda_ot_ee":
             # extract panda end-effector and OptiTrack rigid body positions and orientations
-            pass
-            #self.ee_pos = np.array([msg.transform.translation.x, msg.transform.translation.y, msg.transform.translation.z])
-            #self.ee_ori = np.array([msg.transform.rotation.x, msg.transform.rotation.y, msg.transform.rotation.z, msg.transform.rotation.w])
+            self.ot_ee_pos = np.array([msg.transform.translation.x, msg.transform.translation.y, msg.transform.translation.z])
+            self.ot_ee_ori = np.array([msg.transform.rotation.x, msg.transform.rotation.y, msg.transform.rotation.z, msg.transform.rotation.w])
 
         
     def pub_prediction(self):
@@ -372,28 +391,60 @@ class IMITATORNode(Node):
 
             # get current state of the panda
             self.ee_pos = self.panda.end_effector_position
-            self.ee_ori = self.panda.end_effector_orientation * -1
+            self.ee_ori = self.panda.end_effector_orientation
 
-            #self.ee_pos = np.zeros(self.ee_pos.shape)
-            #self.ee_ori = np.zeros(self.ee_ori.shape)
-
+            # make prediction using the diffusion policy
             goal_force, goal_distance, goal_ee_pos, goal_ee_ori = self.imitator.make_prediction(self.feats_fz, self.gripper_width, self.rs_d405_img, self.ee_pos, self.ee_ori)
 
-            self.prev_goal_force = copy.copy(goal_force)
-
             # move the robot
-            print(self.ee_pos)
-            print(goal_ee_pos)
-            print(self.ee_ori)
-            print(goal_ee_ori)
-            self.panda.move_abs(goal_pos=goal_ee_pos, rel_vel=0.02, goal_ori=goal_ee_ori, asynch=True) # 0.02
+            if self.initial_movement_done is False:
+                # check if force is below -1 at least
+                if self.feats_fz < -0.5 and goal_force < -0.5:
+                    self.total_h += self.delta_h
+                    self.panda.move_abs(goal_pos=self.ee_pos + np.array([0.0, 0.0, self.delta_h]), rel_vel=0.01, goal_ori=self.ee_ori, asynch=True)
+                    if self.total_h >= 0.05:
+                        self.initial_movement_done = True
+            else:
+                self.panda.move_abs(goal_pos=goal_ee_pos, rel_vel=0.02, goal_ori=goal_ee_ori, asynch=True) # 0.02
 
             msg = GoalForceController()
-            #msg.goal_force = float(self.filt.filter(goal_force))
-            msg.goal_force = float(0)
             #msg.goal_force = float(goal_force)
+            goal_force_filtered = self.filt.filter(goal_force)
+            msg.goal_force = float(goal_force_filtered)
             msg.goal_position = int(self.m * goal_distance + self.c)
             self.imitator_publisher.publish(msg)
+
+            # add current and goal forces to the rollout data
+            if self.store:
+                self.rollout_current_force.append(self.feats_fz)
+                self.rollout_goal_force.append(goal_force)
+                self.rollout_goal_force_filtered.append(goal_force_filtered)
+
+
+    def destroy_node(self):
+        """
+        Save the current rollout data to a file, when object is deleted.
+        
+        :return: None
+        """
+        
+        if self.rollout_current_force and self.rollout_goal_force and self.rollout_goal_force_filtered and self.store:
+            
+            current_force = np.array(self.rollout_current_force)
+            goal_force = np.array(self.rollout_goal_force)
+            goal_force_filtered = np.array(self.rollout_goal_force_filtered)
+            
+            timestamp = time.strftime("%Y%m%d_%H%M%S")
+            run = "test"
+
+            filename = f"/home/erik/impact/src/imitator/rollouts/{run}_{timestamp}.npz"
+
+            np.savez(filename,
+                 current_force=current_force,
+                 goal_force=goal_force,
+                 goal_force_filtered=goal_force_filtered)
+
+        super().destroy_node()
 
 
 def main(args=None):
