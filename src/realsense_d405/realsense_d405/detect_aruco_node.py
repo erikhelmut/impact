@@ -107,11 +107,19 @@ class DetectArUcoNode(Node):
         :param ids: IDs of two markers
         :return: distance between two markers and their midpoints
         """
-        
-        midp0 = np.mean(corners[ids[0].item()][0], axis=0)
-        midp1 = np.mean(corners[ids[1].item()][0], axis=0)
-        dist = np.linalg.norm(midp0 - midp1)
 
+        ids_flat = ids.flatten()
+        try:
+            idx_0 = np.where(ids_flat == 0)[0][0]
+            idx_1 = np.where(ids_flat == 1)[0][0]
+        except IndexError:
+            self.get_logger().warn("Markers 0 and 1 not both present — cannot compute distance.")
+            return None, None, None
+
+        midp0 = np.mean(corners[idx_0][0], axis=0)
+        midp1 = np.mean(corners[idx_1][0], axis=0)
+        dist = np.linalg.norm(midp0 - midp1)
+        
         return dist, midp0, midp1
 
 
