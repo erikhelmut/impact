@@ -1,0 +1,3 @@
+Original repo: https://github.com/huggingface/lerobot.git
+Commit: 1ee2ca5c2627eab05940452472d876d0d4e73d1f
+Checked out: 2025-07-16
