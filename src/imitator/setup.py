@@ -20,7 +20,7 @@ setup(
     license='Apache-2.0',
     entry_points={
         'console_scripts': [
-            'imitator_node = imitator.imitator_node_new:main',
+            'imitator_node = imitator.imitator_node:main',
             'imitator_node_fdz = imitator.imitator_node_fdz:main',
         ],
     },

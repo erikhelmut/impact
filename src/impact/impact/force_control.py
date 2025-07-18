@@ -74,7 +74,12 @@ class ForceControl(Node):
         self.filtered_force_publisher = self.create_publisher(Float32, "feats_ma_fz", ma_force_publisher_qos_profile)
 
         # create subscriber to set goal force of gripper
-        self.goal_force_subscriber = self.create_subscription(GoalForceController, "set_actuated_umi_goal_force", self.set_goal_force, 1)
+        goal_force_subscriber_qos_profile = QoSProfile(
+            reliability=QoSReliabilityPolicy.RELIABLE,
+            history=QoSHistoryPolicy.KEEP_LAST,
+            depth=1
+        )
+        self.goal_force_subscriber = self.create_subscription(GoalForceController, "set_actuated_umi_goal_force", self.set_goal_force, goal_force_subscriber_qos_profile)
         self.goal_force_subscriber  # prevent unused variable warning
 
         

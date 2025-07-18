@@ -257,7 +257,12 @@ class IMITATORNode(Node):
 
 
         # create publisher to set goal force and gripper width of the actuated umi gripper
-        self.imitator_publisher = self.create_publisher(GoalForceController, "set_actuated_umi_goal_force", 1)
+        goal_force_publisher_qos_profile = QoSProfile(
+            reliability=QoSReliabilityPolicy.RELIABLE,
+            history=QoSHistoryPolicy.KEEP_LAST,
+            depth=1
+        )
+        self.imitator_publisher = self.create_publisher(GoalForceController, "set_actuated_umi_goal_force", goal_force_publisher_qos_profile)
 
 
         timer_period = 1.0 / 7#10  # 20 or 25 Hz
@@ -435,14 +440,14 @@ class IMITATORNode(Node):
             goal_force_filtered = np.array(self.rollout_goal_force_filtered)
             
             timestamp = time.strftime("%Y%m%d_%H%M%S")
-            run = "test"
+            run = "binary_control/initial_pos_v3/bc"
 
             filename = f"/home/erik/impact/src/imitator/rollouts/{run}_{timestamp}.npz"
 
-            np.savez(filename,
-                 current_force=current_force,
-                 goal_force=goal_force,
-                 goal_force_filtered=goal_force_filtered)
+            #np.savez(filename,
+            #     current_force=current_force,
+            #     goal_force=goal_force,
+            #     goal_force_filtered=goal_force_filtered)
 
         super().destroy_node()
 
