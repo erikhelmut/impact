@@ -65,13 +65,18 @@ def convert_hdf5_to_lerobot_dataset(hdf5_paths, output_dataset_dir, task_name="m
     # you don't need 'task' in the initial `features` dict for `create`
     features = {
         **DEFAULT_FEATURES,  # recommended to include
-        "observation.state": {"shape": (11,), "dtype": "float32", "names": ["feats_fz", "aruco_dist", "optitrack_trans_x", "optitrack_trans_y", "optitrack_trans_z", "optitrack_rot_feat_0", "optitrack_rot_f1", "optitrack_rot_f2", "optitrack_rot_f3", "optitrack_rot_f4", "optitrack_rot_f5"]},
-        "observation.image": {
+        "observation.state": {"shape": (10,), "dtype": "float32", "names": ["aruco_dist", "optitrack_trans_x", "optitrack_trans_y", "optitrack_trans_z", "optitrack_rot_feat_0", "optitrack_rot_f1", "optitrack_rot_f2", "optitrack_rot_f3", "optitrack_rot_f4", "optitrack_rot_f5"]},
+        "observation.image.realsense": {
             "shape": (96, 96, 3),
             "dtype": "video" if use_videos else "image",
             "names": ["height", "width", "channel"]
         },
-        "action": {"shape": (11,), "dtype": "float32", "names": ["feats_fz", "aruco_dist", "optitrack_trans_x", "optitrack_trans_y", "optitrack_trans_z", "optitrack_rot_f0", "optitrack_rot_f1", "optitrack_rot_f2", "optitrack_rot_f3", "optitrack_rot_f4", "optitrack_rot_f5"]},
+        "observation.image.gs_mini": {
+            "shape": (96, 96, 3),
+            "dtype": "video" if use_videos else "image",
+            "names": ["height", "width", "channel"]
+        },
+        "action": {"shape": (10,), "dtype": "float32", "names": ["aruco_dist", "optitrack_trans_x", "optitrack_trans_y", "optitrack_trans_z", "optitrack_rot_f0", "optitrack_rot_f1", "optitrack_rot_f2", "optitrack_rot_f3", "optitrack_rot_f4", "optitrack_rot_f5"]},
     }
     
     # if there is no reward/done in the HDF5 files, remove them from DEFAULT_FEATURES
@@ -114,9 +119,9 @@ def convert_hdf5_to_lerobot_dataset(hdf5_paths, output_dataset_dir, task_name="m
         try:
             with h5py.File(hdf5_file_path, "r") as f:
                 # custom hdf5 file structure
-                feats_fz = f["feats/feats_fz"][:]
                 aruco_dist = f["realsense_d405/realsense_d405_aruco_dist"][:]
                 raw_img_h5 = f["realsense_d405/realsense_d405_color_img"][:]
+                gs_img_h5 = f["gelsight_mini/gs_mini_img"][:]
                 optitrack_trans_x = f["optitrack/optitrack_trans_x"][:]
                 optitrack_trans_y = f["optitrack/optitrack_trans_y"][:]
                 optitrack_trans_z = f["optitrack/optitrack_trans_z"][:]
@@ -126,7 +131,6 @@ def convert_hdf5_to_lerobot_dataset(hdf5_paths, output_dataset_dir, task_name="m
                 optitrack_rot_w = f["optitrack/optitrack_rot_w"][:]
 
                 # reshape if necessary and ensure they are 1D time series first
-                feats_fz = feats_fz.reshape(-1, 1) if feats_fz.ndim == 1 else feats_fz
                 aruco_dist = aruco_dist.reshape(-1, 1) if aruco_dist.ndim == 1 else aruco_dist
                 optitrack_trans_x = optitrack_trans_x.reshape(-1, 1) if optitrack_trans_x.ndim == 1 else optitrack_trans_x
                 optitrack_trans_y = optitrack_trans_y.reshape(-1, 1) if optitrack_trans_y.ndim == 1 else optitrack_trans_y
@@ -145,11 +149,20 @@ def convert_hdf5_to_lerobot_dataset(hdf5_paths, output_dataset_dir, task_name="m
                     for frame in raw_img_h5
                 ], dtype=np.uint8)
 
+                # convert gs_img_h5 from bgr to rgb
+                gs_img_h5 = np.array([cv2.cvtColor(frame, cv2.COLOR_RGB2BGR) for frame in gs_img_h5], dtype=np.uint8)
+
+                # resize images to a smaller size
+                resized_gsimg_np = np.array([
+                    cv2.resize(frame, (96, 96), interpolation=cv2.INTER_AREA)
+                    for frame in gs_img_h5
+                ], dtype=np.uint8)
+
                 # subsubsample the data to reduce size
                 subsample = 4
-                feats_fz           = feats_fz[::subsample]
                 aruco_dist         = aruco_dist[::subsample]
                 resized_images_np  = resized_images_np[::subsample]
+                resized_gsimg_np   = resized_gsimg_np[::subsample]
                 optitrack_trans_x  = optitrack_trans_x[::subsample]
                 optitrack_trans_y  = optitrack_trans_y[::subsample]
                 optitrack_trans_z  = optitrack_trans_z[::subsample]
@@ -160,7 +173,7 @@ def convert_hdf5_to_lerobot_dataset(hdf5_paths, output_dataset_dir, task_name="m
 
                 # determine trajectory length (T-1 transitions)
                 # all source arrays for state/action/image must have at least T frames
-                T = min(feats_fz.shape[0], aruco_dist.shape[0], resized_images_np.shape[0], optitrack_trans_x.shape[0],
+                T = min(aruco_dist.shape[0], resized_images_np.shape[0], resized_gsimg_np.shape[0],     optitrack_trans_x.shape[0],
                         optitrack_trans_y.shape[0], optitrack_trans_z.shape[0], optitrack_rot_x.shape[0], optitrack_rot_y.shape[0],
                         optitrack_rot_z.shape[0], optitrack_rot_w.shape[0])
 
@@ -186,7 +199,6 @@ def convert_hdf5_to_lerobot_dataset(hdf5_paths, output_dataset_dir, task_name="m
                 # action_t: action taken at state_t (here, defined as next_state features)
                 # image_t: image at state_t
                 current_state_data = np.concatenate([
-                    feats_fz[:num_transitions],
                     aruco_dist[:num_transitions],
                     optitrack_trans_x[:num_transitions],
                     optitrack_trans_y[:num_transitions],
@@ -195,7 +207,6 @@ def convert_hdf5_to_lerobot_dataset(hdf5_paths, output_dataset_dir, task_name="m
                 ], axis=1)
 
                 action_data = np.concatenate([
-                    feats_fz[1:T],
                     aruco_dist[1:T],
                     optitrack_trans_x[1:T],
                     optitrack_trans_y[1:T],
@@ -205,17 +216,19 @@ def convert_hdf5_to_lerobot_dataset(hdf5_paths, output_dataset_dir, task_name="m
 
                 image_data_for_episode = resized_images_np[:num_transitions]
 
+                image_data_for_episode_gs = resized_gsimg_np[:num_transitions]
+
                 print(f"  Episode length (transitions): {num_transitions}")
 
                 for i in range(num_transitions):
                     frame_for_lerobot = {
                         "observation.state": current_state_data[i].astype(np.float32),
                         # `add_frame` expects PIL.Image or HWC np.array for images
-                        "observation.image": image_data_for_episode[i],
+                        "observation.image.realsense": image_data_for_episode[i],
+                        "observation.image.gs_mini": image_data_for_episode_gs[i],
                         "action": action_data[i].astype(np.float32),
-                        "task": task_name  # task description for this episode/frame
                     }
-                    dataset.add_frame(frame_for_lerobot)
+                    dataset.add_frame(frame_for_lerobot, task=task_name)
 
                 dataset.save_episode()  # saves the buffered frames as one episode
                 print(f"  Saved episode from {hdf5_file_path.name} to LeRobotDataset.")

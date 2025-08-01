@@ -22,7 +22,7 @@ from franky import (
 import franky
 
 
-ROBOT_HOST = "10.10.10.10"
+ROBOT_HOST = "10.90.90.77"
 NEUTRAL_POS = [
     -1.49446089e-02,
     -6.01734484e-02,

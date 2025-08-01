@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Define variables
-RECORD_DIR="/media/erik/IAS_ERIK/bag_files/planting_task_real_dirt/$(date +%Y-%m-%d_%H-%M-%S)"
+RECORD_DIR="/media/erik/IAS_ERIK/bag_files/grape_task/$(date +%Y-%m-%d_%H-%M-%S)"
 LAUNCH_FILE="impact umi_feats_launch.py"
 
 # Start the ROS 2 launch file
@@ -13,7 +13,7 @@ LAUNCH_PID=$!
 
 # Start ros2 bag recording in the background
 echo "Starting ros2 bag recording in: $RECORD_DIR"
-ros2 bag record --all -o "$RECORD_DIR" &
+ros2 bag record --all -o "$RECORD_DIR" --max-cache-size 8192 &
 
 # Save the PID of the background process
 BAG_PID=$!

@@ -21,6 +21,8 @@ setup(
     entry_points={
         'console_scripts': [
             'imitator_node = imitator.imitator_node:main',
+            'imitator_node_grape_force = imitator.imitator_node_grape_force:main',
+            'imitator_node_grape_gripper = imitator.imitator_node_grape_gripper:main',
             'imitator_node_fdz = imitator.imitator_node_fdz:main',
         ],
     },

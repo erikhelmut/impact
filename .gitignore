@@ -3,3 +3,4 @@ install/
 log/
 __pycache__/
 src/imitator/outputs
+src/imitator/rollouts
