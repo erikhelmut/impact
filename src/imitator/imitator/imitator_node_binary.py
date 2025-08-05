@@ -88,7 +88,7 @@ class IMITATOR:
             self.device = torch.device("cpu")
 
         # provide the hugging face repo id or path to a local outputs/train folder
-        pretrained_policy_path = Path("/home/erik/impact/src/imitator/outputs/train/impact_grape/checkpoints/last/pretrained_model")
+        pretrained_policy_path = Path("/home/erik/impact/src/imitator/outputs/train/impact_planting_real_dirt_binary/checkpoints/last/pretrained_model")
 
         # initialize the policy
         self.policy = DiffusionPolicy.from_pretrained(pretrained_policy_path)
@@ -97,11 +97,10 @@ class IMITATOR:
         self.policy.reset()
 
 
-    def make_prediction(self, feats_fz, gripper_width, rs_d405_img, ee_pos, ee_ori):
+    def make_prediction(self, gripper_width, rs_d405_img, ee_pos, ee_ori):
         """
         Make prediction using the diffusion policy.
 
-        :param feats_fz: current total normal force
         :param gripper_width: current gripper width
         :param rs_d405_img: current color image of the D405 RealSense camera
         :param ee_pos: current end-effector position
@@ -110,7 +109,7 @@ class IMITATOR:
         """
 
         # extract the batch data
-        raw_state = [feats_fz, gripper_width]
+        raw_state = [gripper_width]
         raw_state.extend(ee_pos.astype(np.float32).tolist())
 
         # convert the end-effector orientation to a 6D feature representation
@@ -139,27 +138,26 @@ class IMITATOR:
         with torch.inference_mode():
             policy_action = self.policy.select_action(observation)
 
-        goal_force = policy_action.squeeze(0)[0].to("cpu").numpy()
-        goal_distance = policy_action.squeeze(0)[1].to("cpu").numpy()
+        goal_distance = policy_action.squeeze(0)[0].to("cpu").numpy()
 
-        goal_x_pos = policy_action.squeeze(0)[2].to("cpu").numpy()
-        goal_y_pos = policy_action.squeeze(0)[3].to("cpu").numpy()
-        goal_z_pos = policy_action.squeeze(0)[4].to("cpu").numpy()
+        goal_x_pos = policy_action.squeeze(0)[1].to("cpu").numpy()
+        goal_y_pos = policy_action.squeeze(0)[2].to("cpu").numpy()
+        goal_z_pos = policy_action.squeeze(0)[3].to("cpu").numpy()
         goal_ee_pos = np.array([goal_x_pos, goal_y_pos, goal_z_pos])
 
-        goal_f0_rot = policy_action.squeeze(0)[5].to("cpu").numpy()
-        goal_f1_rot = policy_action.squeeze(0)[6].to("cpu").numpy()
-        goal_f2_rot = policy_action.squeeze(0)[7].to("cpu").numpy()
-        goal_f3_rot = policy_action.squeeze(0)[8].to("cpu").numpy()
-        goal_f4_rot = policy_action.squeeze(0)[9].to("cpu").numpy()
-        goal_f5_rot = policy_action.squeeze(0)[10].to("cpu").numpy()
+        goal_f0_rot = policy_action.squeeze(0)[4].to("cpu").numpy()
+        goal_f1_rot = policy_action.squeeze(0)[5].to("cpu").numpy()
+        goal_f2_rot = policy_action.squeeze(0)[6].to("cpu").numpy()
+        goal_f3_rot = policy_action.squeeze(0)[7].to("cpu").numpy()
+        goal_f4_rot = policy_action.squeeze(0)[8].to("cpu").numpy()
+        goal_f5_rot = policy_action.squeeze(0)[9].to("cpu").numpy()
         goal_ee_ori = np.array([goal_f0_rot, goal_f1_rot, goal_f2_rot, goal_f3_rot, goal_f4_rot, goal_f5_rot])
 
         # convert the goal end-effector orientation to a quaternion
         goal_ee_ori = feature_to_rotation(goal_ee_ori)
         goal_ee_ori = goal_ee_ori.as_quat()
 
-        return goal_force, goal_distance, goal_ee_pos, goal_ee_ori
+        return goal_distance, goal_ee_pos, goal_ee_ori
 
 
 class IMITATORNode(Node):
@@ -399,15 +397,24 @@ class IMITATORNode(Node):
             self.ee_ori = self.panda.end_effector_orientation
 
             # make prediction using the diffusion policy
-            goal_force, goal_distance, goal_ee_pos, goal_ee_ori = self.imitator.make_prediction(self.feats_fz, self.gripper_width, self.rs_d405_img, self.ee_pos, self.ee_ori)
+            goal_force = 0.0
+            if self.gripper_width < 400:
+                gripper_width_bindary = 1
+            else:
+                gripper_width_bindary = 0
+            goal_distance, goal_ee_pos, goal_ee_ori = self.imitator.make_prediction(gripper_width_bindary, self.rs_d405_img, self.ee_pos, self.ee_ori)
+
+            # convert goal_distance to int 0 or 1
+            goal_distance = int(goal_distance > 0.5)
 
             # move the robot
             if self.initial_movement_done is False:
                 # check if force is below -1 at least
-                if self.feats_fz < -0.5 and goal_force < -0.5:
+                if self.gripper_width < 300:
                     self.total_h += self.delta_h
-                    self.panda.move_abs(goal_pos=self.ee_pos + np.array([-1 * self.delta_h, 0.0, 0.0]), rel_vel=0.01, goal_ori=self.ee_ori, asynch=True)
-                    if self.total_h >= 0.1:
+                    #self.panda.move_abs(goal_pos=self.ee_pos + np.array([-1 * self.delta_h, 0.0, 0.0]), rel_vel=0.01, goal_ori=self.ee_ori, asynch=True) # grape task
+                    self.panda.move_abs(goal_pos=self.ee_pos + np.array([0.0, 0.0, self.delta_h]), rel_vel=0.01, goal_ori=self.ee_ori, asynch=True) # planting task
+                    if self.total_h >= 0.05: #0.1: for grape task
                         self.initial_movement_done = True
             else:
                 self.panda.move_abs(goal_pos=goal_ee_pos, rel_vel=0.02, goal_ori=goal_ee_ori, asynch=True) # 0.02
@@ -416,7 +423,10 @@ class IMITATORNode(Node):
             #msg.goal_force = float(goal_force)
             goal_force_filtered = self.filt.filter(goal_force)
             msg.goal_force = float(goal_force_filtered)
-            msg.goal_position = int(self.m * goal_distance + self.c)
+            if goal_distance == 1:
+                msg.goal_position = int(-2700)
+            elif goal_distance == 0:
+                msg.goal_position = int(self.m * 540 + self.c)
             self.imitator_publisher.publish(msg)
 
             # add current and goal forces to the rollout data
@@ -440,7 +450,7 @@ class IMITATORNode(Node):
             goal_force_filtered = np.array(self.rollout_goal_force_filtered)
             
             timestamp = time.strftime("%Y%m%d_%H%M%S")
-            run = "grape_task/force_control/initial_pos_v1/thesisplot_fc"
+            run = "planting_task/binary_control_v2/initial_pos_v4/bc"
 
             filename = f"/home/erik/impact/src/imitator/rollouts/{run}_{timestamp}.npz"
 

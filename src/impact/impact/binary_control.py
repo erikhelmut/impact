@@ -152,7 +152,7 @@ class ForceControl(Node):
             if self.goal_position <= -400:
                 # set pwm to -300
                 if self.pwm == False:
-                    self.goal_pwm_publisher.publish(Int16(data=-300))
+                    self.goal_pwm_publisher.publish(Int16(data=-500))
                     self.pwm = True
             else:
                 # disable pwm
