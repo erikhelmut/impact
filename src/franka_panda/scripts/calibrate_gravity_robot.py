@@ -8,7 +8,7 @@ if __name__ == "__main__":
     Simple script to calibrate the gravity compansation of the Franka Panda robot.
     """
 
-    robot = Robot("10.10.10.10")
+    robot = Robot("10.90.90.77")
 
     # set joint impedance to zero
     robot.set_joint_impedance(
@@ -26,4 +26,8 @@ if __name__ == "__main__":
         duration=Duration(1000000),
     )
 
-    robot.move(mjv1)
+    robot.move(mjv1, asynchronous=True)
+
+    while True:
+        print(robot.current_joint_state.position)
+        

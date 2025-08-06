@@ -8,7 +8,7 @@ if __name__ == "__main__":
     Simple script to record calibration points for the Franka Panda robot using OptiTrack.
     """
 
-    robot = Robot("10.10.10.10")
+    robot = Robot("10.90.90.77")
 
     # set joint impedance to zero
     robot.set_joint_impedance(
